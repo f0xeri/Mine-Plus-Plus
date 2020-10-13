@@ -7,6 +7,7 @@
 #include "../Logger.hpp"
 #include "../Camera/Camera.h"
 #include <sstream>
+#include <thread>
 
 ChunkManager::ChunkManager(int w, int h, int d) : w(w), h(h), d(d)
 {

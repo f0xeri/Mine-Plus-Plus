@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <sstream>
+#include <thread>
+#include <fstream>
 #include "Window.hpp"
 #include "../Logger.hpp"
 #include "../Model/Model.hpp"
@@ -84,11 +86,13 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     }
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
     {
-        chunks->saveMap();
+        std::thread saveThread(&ChunkManager::saveMap, chunks);
+        saveThread.detach();
     }
     if (key == GLFW_KEY_L && action == GLFW_PRESS)
     {
-        chunks->loadMap();
+        std::thread loadThread(&ChunkManager::loadMap, chunks);
+        loadThread.detach();
     }
 }
 
@@ -270,7 +274,7 @@ void Window::startLoop()
                 }
             }
         }
-        float currentTime = glfwGetTime();
+        double currentTime = glfwGetTime();
         deltaTime = glfwGetTime() - lastTime;
         lastTime = currentTime;
         glClearColor(0.5, 0.8, 1, 1);
