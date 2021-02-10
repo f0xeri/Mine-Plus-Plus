@@ -5,9 +5,7 @@
 #include <fstream>
 #include "ChunkManager.hpp"
 #include "../Logger.hpp"
-#include "../Camera/Camera.h"
 #include <sstream>
-#include <thread>
 
 ChunkManager::ChunkManager(int w, int h, int d) : w(w), h(h), d(d)
 {
@@ -184,37 +182,6 @@ block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec
     end.z = pz + t * dz;
     norm.x = norm.y = norm.z = 0.0f;
     return nullptr;
-}
-
-vec3 ChunkManager::rayCast2(Camera *camera)
-{
-    glm::mat4 proj = camera->getProjectionMatrix();
-    glm::mat4 view = camera->getViewMatrix();
-
-    glm::mat4 invVP = glm::inverse(proj * view);
-    glm::vec4 screenPos = glm::vec4(0, -0, 1.0f, 1.0f);
-    glm::vec4 worldPos = invVP * screenPos;
-    glm::vec3 dir = glm::normalize(glm::vec3(worldPos));
-    glm::vec3 rayStartPosition = camera->pos;
-    float distance = 1.0f;
-    vec3 currentRayPos = rayStartPosition + dir * distance;
-    while (distance <= 10.0f)
-    {
-        block *block = get(currentRayPos.x, currentRayPos.y, currentRayPos.z);
-        if (block == nullptr || block->id == 0)
-        {
-            distance += 0.5f;
-            currentRayPos = rayStartPosition + dir * distance;
-        }
-        else
-        {
-            return currentRayPos;
-        }
-    }
-
-    glm::vec3 rayEndPosition = rayStartPosition + dir * 10.0f;
-
-    return rayEndPosition;
 }
 
 void ChunkManager::saveMap()

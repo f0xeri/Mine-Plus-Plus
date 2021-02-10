@@ -8,7 +8,6 @@
 #include <glm/ext.hpp>
 #include <sstream>
 #include <thread>
-#include <fstream>
 #include "Window.hpp"
 #include "../Logger.hpp"
 #include "../Model/Model.hpp"
@@ -155,7 +154,7 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
         }
         if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
         {
-            chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), 2);
+            chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), 6);
         }
     }
 }
@@ -228,8 +227,9 @@ void showFPS(GLFWwindow *pWindow, int chunksOnSceneCounter)
 void Window::startLoop()
 {
     mat4 model(1.0f);
-    camera = new Camera(vec3(10, 10, 10), radians(60.0f));
+    camera = new Camera(vec3(0, 10, 0), radians(60.0f));
     Texture *texture_atlas = new Texture("res/textures/texture_atlas.png");
+    texture_atlas->loadTexture();
     BlockRenderer newChunkRenderer(1);
 
     for (auto &chunk : chunks->chunksDict)
@@ -253,13 +253,17 @@ void Window::startLoop()
     double lastTime = glfwGetTime();
 
     int chunksOnSceneCounter = 0;
+
+    vec3 lightPos = {camera->pos.x, 150, camera->pos.z};
     while (!glfwWindowShouldClose(mainWindow))
     {
         Chunk *chunk;
         nModel::Model *mesh;
         int cx = camera->pos.x / CHUNK_SIZE;
         int cz = camera->pos.z / CHUNK_SIZE;
-        vec3 lightPos = {(chunks->w * 16) / 2, 300, (chunks->d * 16) / 2};
+
+        lightPos = {camera->pos.x, 150, camera->pos.z};
+
         shader.use();
         showFPS(mainWindow, chunksOnSceneCounter);
         int newChunksCount = 0;
@@ -271,6 +275,7 @@ void Window::startLoop()
                 {
                     chunks->add(x_, 0, z_);
                     newChunksCount++;
+                    //lightPos = {camera->pos.x + 50, 150, camera->pos.z + 30};
                 }
             }
         }
@@ -314,20 +319,6 @@ void Window::startLoop()
                 chunksOnSceneCounter++;
             }
         }
-        /*for (auto &chunk_ : chunks->chunksDict)
-        {
-            chunk = chunk_.second;
-            if (cx - 12 < chunk->x <= cx + 12 && cz - 12 < chunk->z <= cz + 12)
-            //if (cx - 12 < chunk->x <= cx + 12 && cz - 12 < chunk->z <= cz + 12)
-            {
-                mesh = chunk->mesh;
-                //LOG("[INFO] Chunk found in (" << x_ << "; " << z_ << ")");
-                model = mat4(1.0f);
-                model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
-                shader.uniformMatrix(model, "model");
-                mesh->draw();
-            }
-        }*/
         glfwSwapBuffers(mainWindow);
         glfwPollEvents();
     }

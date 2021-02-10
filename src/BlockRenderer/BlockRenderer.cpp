@@ -5,6 +5,7 @@
 #include <iostream>
 #include "BlockRenderer.hpp"
 #include "../Voxels/block.hpp"
+#include "../Logger.hpp"
 
 #define VERTEX_SIZE (3 + 2)
 #define IS_IN(X,Y,Z) ((X) >= 0 && (X) < CHUNK_SIZE && (Y) >= 0 && (Y) < CHUNK_Y && (Z) >= 0 && (Z) < CHUNK_SIZE)
@@ -29,7 +30,7 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
     std::vector<glm::vec3> normal;
     std::vector<int> indices;
     int indecesIndex = 0;
-    float dImin = 0.0f;  // diffuseIntesitivityMin
+    float dImin = 0.35f;  // diffuseIntesitivityMin
     float dImax = 1.0f;  // diffuseIntesitivityMax
     int s = 1;
     for (int y = 0; y < CHUNK_Y; y++)
@@ -48,7 +49,7 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                 float v1 = v + pixelSize;
                 float v2 = v + tOffset - pixelSize;
                 if (!id) continue;
-
+                // top
                 if (!IS_BLOCKED(x, y + 1, z))
                 {
                     coords.insert(coords.end(), {
@@ -57,7 +58,19 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                             {s + x, s + y, 0 + z},
                             {0 + x, s + y, 0 + z}
                     });
-                    texCoords.insert(texCoords.end(), {{u1, v2}, {u2, v2}, {u2, v1}, {u1, v1}});
+
+                    // if this block is a grass block, we should use another texture for top and sides
+                    float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
+                    if (blk.id == 3) {
+                        uu = (5 % 16) * tOffset;
+                        vv = (5 / 16) * tOffset;
+                        uu1 = uu + pixelSize;
+                        uu2 = uu + tOffset - pixelSize;
+                        vv1 = vv + pixelSize;
+                        vv2 = vv + tOffset - pixelSize;
+                    }
+
+                    texCoords.insert(texCoords.end(), {{uu1, vv2}, {uu2, vv2}, {uu2, vv1}, {uu1, vv1}});
                     normal.insert(normal.end(), {
                             {dImin, dImax, dImin},
                             {dImin, dImax, dImin},
@@ -70,15 +83,28 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                     });
                     indecesIndex += 4;
                 }
+
+                // back side
                 if (!IS_BLOCKED(x, y,z - 1))
                 {
+                    // if this block is a grass block, we should use another texture for top and sides
+                    float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
+                    if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
+                        uu = (4 % 16) * tOffset;
+                        vv = (4 / 16) * tOffset;
+                        uu1 = uu + pixelSize;
+                        uu2 = uu + tOffset - pixelSize;
+                        vv1 = vv + pixelSize;
+                        vv2 = vv + tOffset - pixelSize;
+                    }
+
                     coords.insert(coords.end(), {
                             {s + x, 0 + y, 0 + z},
                             {0 + x, 0 + y, 0 + z},
                             {0 + x, s + y, 0 + z},
                             {s + x, s + y, 0 + z}
                     });
-                    texCoords.insert(texCoords.end(), {{u1, v2}, {u2, v2}, {u2, v1}, {u1, v1}});
+                    texCoords.insert(texCoords.end(), {{uu1, vv2}, {uu2, vv2}, {uu2, vv1}, {uu1, vv1}});
                     normal.insert(normal.end(), {
                             {dImin, dImin, -dImax},
                             {dImin, dImin, -dImax},
@@ -91,15 +117,27 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                     });
                     indecesIndex += 4;
                 }
+                // front side
                 if (!IS_BLOCKED(x, y,z + 1))
                 {
+                    // if this block is a grass block, we should use another texture for top and sides
+                    float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
+                    if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
+                        uu = (4 % 16) * tOffset;
+                        vv = (4 / 16) * tOffset;
+                        uu1 = uu + pixelSize;
+                        uu2 = uu + tOffset - pixelSize;
+                        vv1 = vv + pixelSize;
+                        vv2 = vv + tOffset - pixelSize;
+                    }
+
                     coords.insert(coords.end(),{
                             {0 + x, 0 + y, s + z},
                             {s + x, 0 + y, s + z},
                             {s + x, s + y, s + z},
                             {0 + x, s + y, s + z}
                     });
-                    texCoords.insert(texCoords.end(), {{u1, v2}, {u2, v2}, {u2, v1}, {u1, v1}});
+                    texCoords.insert(texCoords.end(), {{uu1, vv2}, {uu2, vv2}, {uu2, vv1}, {uu1, vv1}});
                     normal.insert(normal.end(), {
                             {dImin, dImin, dImax},
                             {dImin, dImin, dImax},
@@ -112,6 +150,7 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                     });
                     indecesIndex += 4;
                 }
+                // bottom
                 if (!IS_BLOCKED(x,y - 1,z))
                 {
                     coords.insert(coords.end(),{
@@ -133,15 +172,27 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                     });
                     indecesIndex += 4;
                 }
+                // right side
                 if (!IS_BLOCKED(x + 1, y, z))
                 {
+                    // if this block is a grass block, we should use another texture for top and sides
+                    float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
+                    if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
+                        uu = (4 % 16) * tOffset;
+                        vv = (4 / 16) * tOffset;
+                        uu1 = uu + pixelSize;
+                        uu2 = uu + tOffset - pixelSize;
+                        vv1 = vv + pixelSize;
+                        vv2 = vv + tOffset - pixelSize;
+                    }
+
                     coords.insert(coords.end(),{
                             {s + x, 0 + y, s + z},
                             {s + x, 0 + y, 0 + z},
                             {s + x, s + y, 0 + z},
                             {s + x, s + y, s + z}
                     });
-                    texCoords.insert(texCoords.end(), {{u1, v2}, {u2, v2}, {u2, v1}, {u1, v1}});
+                    texCoords.insert(texCoords.end(), {{uu1, vv2}, {uu2, vv2}, {uu2, vv1}, {uu1, vv1}});
                     normal.insert(normal.end(), {
                             {dImax, dImin, dImin},
                             {dImax, dImin, dImin},
@@ -154,15 +205,27 @@ nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
                     });
                     indecesIndex += 4;
                 }
+                // left side
                 if (!IS_BLOCKED(x - 1, y, z))
                 {
+                    // if this block is a grass block, we should use another texture for top and sides
+                    float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
+                    if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
+                        uu = (4 % 16) * tOffset;
+                        vv = (4 / 16) * tOffset;
+                        uu1 = uu + pixelSize;
+                        uu2 = uu + tOffset - pixelSize;
+                        vv1 = vv + pixelSize;
+                        vv2 = vv + tOffset - pixelSize;
+                    }
+
                     coords.insert(coords.end(),{
                             {0 + x, 0 + y, 0 + z},
                             {0 + x, 0 + y, s + z},
                             {0 + x, s + y, s + z},
                             {0 + x, s + y, 0 + z}
                     });
-                    texCoords.insert(texCoords.end(), {{u1, v2}, {u2, v2}, {u2, v1}, {u1, v1}});
+                    texCoords.insert(texCoords.end(), {{uu1, vv2}, {uu2, vv2}, {uu2, vv1}, {uu1, vv1}});
                     normal.insert(normal.end(), {
                             {-dImax, dImin, dImin},
                             {-dImax, dImin, dImin},

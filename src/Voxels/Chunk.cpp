@@ -22,7 +22,7 @@ Chunk::Chunk(int xpos, int ypos, int zpos) : x(xpos), y(ypos), z(zpos)
             for (int y_ = 0; y_ < CHUNK_Y; y_++)
             {
                 int real_y = y_ + this->y * CHUNK_Y;
-                int id = real_y <= height * 10 + 5;
+                int id = (real_y <= height * 10 + 5) == 1 ? 3 : 0;
                 if (real_y <= 2)
                     id = 2;
                 blocks[(y_ * CHUNK_SIZE + z_) * CHUNK_SIZE + x_].id = id;
