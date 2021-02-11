@@ -1,7 +1,6 @@
 //
 // Created by Yaroslav on 28.07.2020.
 //
-
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -18,12 +17,20 @@
 #include "../BlockRenderer/BlockRenderer.hpp"
 #include "../ChunkManager/ChunkManager.hpp"
 
+#include "../../lib/imgui/imgui.h"
+#include "../../lib/imgui/imgui_impl_glfw.h"
+#include "../../lib/imgui/imgui_impl_opengl3.h"
+
+
+#define ASPECT_RATIO float(Window::_width) / float(Window::_height)
+
 using namespace glm;
 
 ChunkManager *chunks = new ChunkManager(12, 1, 12);
 
 int Window::_height = 0;
 int Window::_width = 0;
+
 float deltaTime;
 float speed = 12.f;
 Camera *camera;
@@ -36,6 +43,7 @@ float y = 0.0f;
 
 bool cursor_locked = false;
 bool cursor_started = false;
+bool show_debug = false;
 
 float camX = 0.0f;
 float camY = 0.0f;
@@ -92,6 +100,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     {
         std::thread loadThread(&ChunkManager::loadMap, chunks);
         loadThread.detach();
+    }
+    if (key == GLFW_KEY_F3 && action == GLFW_PRESS)
+    {
+        show_debug = !show_debug;
     }
 }
 
@@ -200,6 +212,14 @@ Window::Window(const char *title, int width, int height)
     glfwSetMouseButtonCallback(mainWindow, mouseButtonCallback);
     glfwSetCursorPosCallback(mainWindow, cursorCallback);
     toggleCursor(mainWindow);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(mainWindow, true);
+    const char* glsl_version = "#version 430";
+    ImGui_ImplOpenGL3_Init(glsl_version);
 }
 
 Window::~Window()
@@ -223,6 +243,24 @@ void showFPS(GLFWwindow *pWindow, int chunksOnSceneCounter)
         lastTime = currentTime;
     }
 }
+
+void generateNewChunksIfNeeded(int currentX, int currentZ)
+{
+    int newChunksCount = 0;
+    for (int x_ = currentX - 12; x_ <= currentX + 12; x_++)
+    {
+        for (int z_ = currentZ - 12; z_ <= currentZ + 12; z_++)
+        {
+            if (chunks->chunksDict.find({x_, z_}) == chunks->chunksDict.end())
+            {
+                chunks->add(x_, 0, z_);
+                newChunksCount++;
+                //lightPos = {camera->pos.x + 50, 150, camera->pos.z + 30};
+            }
+        }
+    }
+}
+
 
 void Window::startLoop()
 {
@@ -249,43 +287,50 @@ void Window::startLoop()
     shader.link();
     shader.use();
     texture_atlas->bind();
+
+    nModel::Model crosshairMesh;
+    crosshairMesh.addVertexBufferObject({
+                                                {0.0f, -0.02f, 0.0f},
+                                                {0.0f, 0.02f, 0.0f},
+                                                {-0.02f, 0.0f, 0.0f},
+                                                {0.02f, 0.0f, 0.0f},
+                                        });
+
+    crosshairMesh.addIndices({0, 1, 2, 3});
+
+    nModel::Program crosshairShader("crosshairVert", "crosshairFrag");
+    crosshairShader.bindAttribute(0, "position");
+    crosshairShader.link();
+
     Chunk* closes[27];
     double lastTime = glfwGetTime();
 
     int chunksOnSceneCounter = 0;
 
     vec3 lightPos = {camera->pos.x, 150, camera->pos.z};
+
+    mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
+
     while (!glfwWindowShouldClose(mainWindow))
     {
+        glClearColor(0.5, 0.8, 1, 1);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         Chunk *chunk;
         nModel::Model *mesh;
         int cx = camera->pos.x / CHUNK_SIZE;
         int cz = camera->pos.z / CHUNK_SIZE;
 
         lightPos = {camera->pos.x, 150, camera->pos.z};
+        generateNewChunksIfNeeded(cx, cz);
 
         shader.use();
         showFPS(mainWindow, chunksOnSceneCounter);
-        int newChunksCount = 0;
-        for (int x_ = cx - 12; x_ <= cx + 12; x_++)
-        {
-            for (int z_ = cz - 12; z_ <= cz + 12; z_++)
-            {
-                if (chunks->chunksDict.find({x_, z_}) == chunks->chunksDict.end())
-                {
-                    chunks->add(x_, 0, z_);
-                    newChunksCount++;
-                    //lightPos = {camera->pos.x + 50, 150, camera->pos.z + 30};
-                }
-            }
-        }
+
         double currentTime = glfwGetTime();
         deltaTime = glfwGetTime() - lastTime;
         lastTime = currentTime;
-        glClearColor(0.5, 0.8, 1, 1);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //shader.uniformMatrix(model, "model");
         shader.uniformMatrix(camera->getProjectionMatrix() * camera->getViewMatrix(), "projView");
         GLint lightPosLoc = glGetUniformLocation(shader.mProgram, "lightPos");
         glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
@@ -319,6 +364,35 @@ void Window::startLoop()
                 chunksOnSceneCounter++;
             }
         }
+
+        crosshairShader.use();
+        crosshairShader.uniformMatrix(mat4(1.0f), "model");
+        crosshairShader.uniformMatrix(orthoMatrix, "projView");
+        crosshairMesh.draw(GL_LINES);
+
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        if (show_debug)
+        {
+            ImGuiWindowFlags window_flags = 0;
+            window_flags |= ImGuiWindowFlags_NoBackground;
+            window_flags |= ImGuiWindowFlags_NoTitleBar;
+            window_flags |= ImGuiWindowFlags_NoResize;
+            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Once);
+            ImGui::Begin("Debug", &show_debug, window_flags); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            std::stringstream debugSS;
+            debugSS << "Global player position:\n" << "X: " << camera->pos.x << " Y: " << camera->pos.y << " Z: " << camera->pos.z << "\n\n";
+            debugSS << "Current chunk position:\n" << "X: " << cx << " Z: " << cz << "\n\n";
+            ImGui::Text("%s", debugSS.str().c_str());
+            /*if (ImGui::Button("Close (F3)"))
+                show_debug = false;*/
+            ImGui::End();
+        }
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(mainWindow);
         glfwPollEvents();
     }
