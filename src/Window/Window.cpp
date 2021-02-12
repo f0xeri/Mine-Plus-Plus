@@ -44,6 +44,7 @@ float y = 0.0f;
 bool cursor_locked = false;
 bool cursor_started = false;
 bool show_debug = false;
+bool show_inventory = false;
 
 float camX = 0.0f;
 float camY = 0.0f;
@@ -53,6 +54,7 @@ bool vsync = false;
 int nbFrames = 0;
 
 double lastTime;
+int currentBlockId = 0;
 
 void toggleCursor(GLFWwindow *window)
 {
@@ -104,6 +106,27 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     if (key == GLFW_KEY_F3 && action == GLFW_PRESS)
     {
         show_debug = !show_debug;
+        show_inventory = !show_inventory;
+    }
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS)
+    {
+        currentBlockId = 1;
+    }
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS)
+    {
+        currentBlockId = 2;
+    }
+    if (key == GLFW_KEY_3 && action == GLFW_PRESS)
+    {
+        currentBlockId = 3;
+    }
+    if (key == GLFW_KEY_4 && action == GLFW_PRESS)
+    {
+        currentBlockId = 6;
+    }
+    if (key == GLFW_KEY_0 && action == GLFW_PRESS)
+    {
+        currentBlockId = 0;
     }
 }
 
@@ -166,7 +189,7 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
         }
         if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
         {
-            chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), 6);
+            chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), currentBlockId);
         }
     }
 }
@@ -355,7 +378,7 @@ void Window::startLoop()
         {
             for (int z_ = cz - 12; z_ <= cz + 12; z_++)
             {
-                chunk = chunks->chunksDict[{x_, z_}];
+                chunk = chunks->chunksDict.at({x_, z_});
                 mesh = chunk->mesh;
                 model = mat4(1.0f);
                 model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
@@ -369,7 +392,6 @@ void Window::startLoop()
         crosshairShader.uniformMatrix(mat4(1.0f), "model");
         crosshairShader.uniformMatrix(orthoMatrix, "projView");
         crosshairMesh.draw(GL_LINES);
-
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -391,8 +413,37 @@ void Window::startLoop()
                 show_debug = false;*/
             ImGui::End();
         }
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if (show_inventory)
+        {
+            ImGuiWindowFlags window_flags = 0;
+            window_flags |= ImGuiWindowFlags_NoBackground;
+            window_flags |= ImGuiWindowFlags_NoTitleBar;
+            window_flags |= ImGuiWindowFlags_NoResize;
+            ImGui::SetNextWindowPos({Window::_width / 2.0f - 80, Window::_height - (Window::_height / 12.0f)});
+            ImGui::SetNextWindowSize({160, 60}, ImGuiCond_Once);
+            ImGui::Begin("Inventory", &show_debug, window_flags); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            std::stringstream ss;
+            switch (currentBlockId) {
+                case 0: ss << "Air"; break;
+                case 1: ss << "Stone"; break;
+                case 2: ss << "Sand"; break;
+                case 3: ss << "Grass"; break;
+                case 6: ss << "Bricks"; break;
+            }
+            ImGui::SetWindowFontScale(1.8f);
+            float font_size = ImGui::GetFontSize() * ss.str().size() / 2;
+            ImGui::SameLine(ImGui::GetWindowSize().x / 2 - font_size + (font_size / 2));
+            ImGui::Text("%s", ss.str().c_str());
+            ImGui::End();
+        }
+
+        if (show_debug || show_inventory)
+        {
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
+
         glfwSwapBuffers(mainWindow);
         glfwPollEvents();
     }

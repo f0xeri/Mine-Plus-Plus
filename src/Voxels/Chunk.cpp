@@ -19,6 +19,8 @@ Chunk::Chunk(int xpos, int ypos, int zpos) : x(xpos), y(ypos), z(zpos)
             int real_x = x_ + this->x * CHUNK_SIZE;
             int real_z = z_ + this->z * CHUNK_SIZE;
             float height = glm::perlin(glm::vec3(real_x * 0.05f, real_z * 0.05f, 0.f));
+            //float height = glm::perlin(glm::vec3(real_x*0.0126125f,real_z*0.0126125f, 0.0f));
+            //height += glm::perlin(glm::vec3(real_x*0.016125f,real_z*0.016125f, 0.0f))*3.5f;
             for (int y_ = 0; y_ < CHUNK_Y; y_++)
             {
                 int real_y = y_ + this->y * CHUNK_Y;

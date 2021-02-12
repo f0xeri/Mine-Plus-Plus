@@ -15,14 +15,15 @@
 // #define CHUNK_VOLUME CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE
 #define CHUNK_VOLUME CHUNK_SIZE * CHUNK_Y * CHUNK_SIZE
 
-class Chunk{
+class Chunk {
 public:
-        int x = 0, y = 0, z = 0;
+    int x = 0, y = 0, z = 0;
     block *blocks;
-    // std::map<std::vector<int>, block> blocksDict;
     nModel::Model *mesh = nullptr;
     bool modified = true;
 
+    void getHeightIn(int xMin, int zMin, int xMax, int zMax);
+    void getHeightMap();
     Chunk(int x, int y, int z);
     ~Chunk();
 };
