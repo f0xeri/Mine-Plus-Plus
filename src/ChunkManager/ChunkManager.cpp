@@ -53,9 +53,10 @@ block *ChunkManager::get(int x, int y, int z)
     if (x < 0 && x % 16 != 0) cx--;
     if (y < 0) cy--;
     if (z < 0 && z % 16 != 0) cz--;
-    //std::cout << cx << " " << cz << std::endl;
-    if (chunksDict.count({cx, cz}) == 0)
+    if (chunksDict.count({cx, cz}) == 0) {
         return nullptr;
+    }
+
     Chunk *chunk = chunksDict[{cx, cz}];
 
     int lx = x - cx * CHUNK_SIZE;
