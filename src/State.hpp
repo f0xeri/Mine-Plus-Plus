@@ -22,11 +22,11 @@ struct State
     float x = 0.0f;
     float y = 0.0f;
 
-    bool cursor_locked = false;
-    bool cursor_started = false;
-    bool show_debug = false;
-    bool show_inventory = false;
-
+    bool cursorLocked = false;
+    bool cursorStarted = false;
+    bool showDebug = false;
+    bool showInventory = false;
+    bool showPolygons = false;
     float camX = 0.0f;
     float camY = 0.0f;
 

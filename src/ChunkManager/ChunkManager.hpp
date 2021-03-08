@@ -24,7 +24,6 @@ public:
     void set(int x, int y, int z, int id);
     Chunk *getChunk(int x, int y, int z);
     block *rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec3 &end, glm::vec3 &norm, glm::vec3 &iend);
-    vec3 rayCast2(Camera *camera);
     void saveMap();
     void loadMap();
 };

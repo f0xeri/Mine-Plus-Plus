@@ -4,10 +4,11 @@ out vec4 color;
 
 in vec3 fragPos;
 in vec3 _normal;
-
 in vec2 pass_texCoord;
-uniform sampler2D u_texture;
+
+layout(binding = 0) uniform sampler2D u_texture;
 uniform vec3 lightPos;
+uniform vec3 viewPos;
 
 void main()
 {

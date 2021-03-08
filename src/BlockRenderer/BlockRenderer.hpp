@@ -14,7 +14,7 @@ class BlockRenderer
 public:
     explicit BlockRenderer(int capacity);
     ~BlockRenderer();
-    nModel::Model *render(Chunk *chunk, const Chunk **pChunk);
+    nModel::Model *createMesh(Chunk *chunk, const Chunk **pChunk);
 };
 
 

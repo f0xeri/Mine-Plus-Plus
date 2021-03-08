@@ -3,7 +3,7 @@
 //
 
 #include "CubeRenderer.hpp"
-#include "../Model//Model.hpp"
+#include "../Model/Model.hpp"
 #include "../Program/Program.hpp"
 #include "../Logger.hpp"
 

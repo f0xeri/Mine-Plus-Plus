@@ -13,8 +13,8 @@ uniform mat4 projView;
 
 void main()
 {
-    gl_Position = projView * model * vec4(position, 1);
-    pass_texCoord = vec2(texCoord.x, texCoord.y);
-    fragPos = vec3(model * vec4(position, 1.0f));
+    fragPos = vec3(model * vec4(position, 1.0));
     _normal = mat3(transpose(inverse(model))) * normal;
+    pass_texCoord = texCoord;
+    gl_Position = projView * model * vec4(position, 1);
 }

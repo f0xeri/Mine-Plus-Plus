@@ -93,6 +93,7 @@ Window::Window(const char *title, int width, int height)
 Window::~Window()
 {
     glfwDestroyWindow(mainWindow);
+    glfwTerminate();
     LOG("[INFO] Window closed.");
 }
 
@@ -123,12 +124,61 @@ void generateNewChunksIfNeeded(int currentX, int currentZ)
             {
                 state->chunks->add(x_, 0, z_);
                 newChunksCount++;
-                //lightPos = {camera->pos.x + 50, 150, camera->pos.z + 30};
             }
         }
     }
 }
 
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+                // positions        // texture Coords
+                -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+int renderScene(nModel::Program &shader, Texture *texture_atlas, int cx, int cz)
+{
+    mat4 model = mat4(1.0f);
+    Chunk *chunk;
+    nModel::Model *mesh;
+    int chunksOnSceneCounter = 0;
+    for (int x_ = cx - 12; x_ <= cx + 12; x_++)
+    {
+        for (int z_ = cz - 12; z_ <= cz + 12; z_++)
+        {
+            chunk = state->chunks->chunksDict.at({x_, z_});
+            mesh = chunk->mesh;
+            model = mat4(1.0f);
+            model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
+            shader.uniformMatrix(model, "model");
+            mesh->draw();
+            chunksOnSceneCounter++;
+        }
+    }
+    return chunksOnSceneCounter;
+}
 
 void Window::startLoop()
 {
@@ -140,7 +190,7 @@ void Window::startLoop()
 
     for (auto &chunk : state->chunks->chunksDict)
     {
-        nModel::Model *mesh = newChunkRenderer.render(chunk.second, nullptr);
+        nModel::Model *mesh = newChunkRenderer.createMesh(chunk.second, nullptr);
         chunk.second->mesh = mesh;
     }
 
@@ -175,12 +225,24 @@ void Window::startLoop()
 
     int chunksOnSceneCounter = 0;
 
-    vec3 lightPos = {state->camera->pos.x, 150, state->camera->pos.z};
+    vec3 lightPos = {state->camera->pos.x, 50, state->camera->pos.z};
+
+    nModel::Program simpleDepthShader("vertDepthShader", "fragDepthShader");
+    simpleDepthShader.link();
+
+    nModel::Program debugQuad("vertDebugQuad", "fragDebugQuad");
+    debugQuad.link();
 
     mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
 
     while (!glfwWindowShouldClose(mainWindow))
     {
+        double currentTime = glfwGetTime();
+        state->deltaTime = glfwGetTime() - lastTime;
+        lastTime = currentTime;
+
+        updateInputs(mainWindow);
+
         glClearColor(0.5, 0.8, 1, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -189,49 +251,42 @@ void Window::startLoop()
         int cx = state->camera->pos.x / CHUNK_SIZE;
         int cz = state->camera->pos.z / CHUNK_SIZE;
 
-        lightPos = {state->camera->pos.x, 150, state->camera->pos.z};
+        lightPos = {state->camera->pos.x, 50, state->camera->pos.z};
         generateNewChunksIfNeeded(cx, cz);
 
-        shader.use();
         showFPS(mainWindow, chunksOnSceneCounter);
 
-        double currentTime = glfwGetTime();
-        state->deltaTime = glfwGetTime() - lastTime;
-        lastTime = currentTime;
-
-        shader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
-        GLint lightPosLoc = glGetUniformLocation(shader.mProgram, "lightPos");
-        glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
-        updateInputs(mainWindow);
         int i = 0;
         int count = 0;
         for (auto &ichunk : state->chunks->chunksDict)
         {
-            Chunk* chunk = ichunk.second;
+            chunk = ichunk.second;
             if (!chunk->modified)
                 continue;
             chunk->modified = false;
             count++;
             delete chunk->mesh;
 
-            mesh = newChunkRenderer.render(chunk, (const Chunk **) closes);
+            mesh = newChunkRenderer.createMesh(chunk, (const Chunk **) closes);
             chunk->mesh = mesh;
             i++;
         }
-        chunksOnSceneCounter = 0;
-        for (int x_ = cx - 12; x_ <= cx + 12; x_++)
-        {
-            for (int z_ = cz - 12; z_ <= cz + 12; z_++)
-            {
-                chunk = state->chunks->chunksDict.at({x_, z_});
-                mesh = chunk->mesh;
-                model = mat4(1.0f);
-                model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
-                shader.uniformMatrix(model, "model");
-                mesh->draw();
-                chunksOnSceneCounter++;
-            }
-        }
+
+        // reset viewport
+        glViewport(0, 0, Window::_width, Window::_height);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (state->showPolygons) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        // main render
+        shader.use();
+        shader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
+        glUniform3f(glGetUniformLocation(shader.mProgram, "viewPos"), state->camera->pos.x, state->camera->pos.y, state->camera->pos.z);
+        glUniform3f(glGetUniformLocation(shader.mProgram, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
+        glActiveTexture(GL_TEXTURE0);
+        texture_atlas->bind();
+        chunksOnSceneCounter = renderScene(shader, texture_atlas, cx, cz);
 
         crosshairShader.use();
         crosshairShader.uniformMatrix(mat4(1.0f), "model");
@@ -242,14 +297,14 @@ void Window::startLoop()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if (state->show_debug)
+        if (state->showDebug)
         {
             ImGuiWindowFlags window_flags = 0;
             window_flags |= ImGuiWindowFlags_NoBackground;
             window_flags |= ImGuiWindowFlags_NoTitleBar;
             window_flags |= ImGuiWindowFlags_NoResize;
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Once);
-            ImGui::Begin("Debug", &state->show_debug, window_flags);
+            ImGui::Begin("Debug", &state->showDebug, window_flags);
             std::stringstream debugSS;
             debugSS << "Global player position:\n" << "X: " << state->camera->pos.x << " Y: " << state->camera->pos.y << " Z: " << state->camera->pos.z << "\n\n";
             debugSS << "Current chunk position:\n" << "X: " << cx << " Z: " << cz << "\n\n";
@@ -259,7 +314,7 @@ void Window::startLoop()
             ImGui::End();
         }
 
-        if (state->show_inventory)
+        if (state->showInventory)
         {
             ImGuiWindowFlags window_flags = 0;
             window_flags |= ImGuiWindowFlags_NoBackground;
@@ -267,7 +322,7 @@ void Window::startLoop()
             window_flags |= ImGuiWindowFlags_NoResize;
             ImGui::SetNextWindowPos({Window::_width / 2.0f - 80, Window::_height - (Window::_height / 12.0f)});
             ImGui::SetNextWindowSize({160, 60}, ImGuiCond_Once);
-            ImGui::Begin("Inventory", &state->show_inventory, window_flags);
+            ImGui::Begin("Inventory", &state->showInventory, window_flags);
             std::stringstream ss;
             switch (state->currentBlockId) {
                 case 0: ss << "Air"; break;
@@ -283,7 +338,7 @@ void Window::startLoop()
             ImGui::End();
         }
 
-        if (state->show_debug || state->show_inventory)
+        if (state->showDebug || state->showInventory)
         {
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -7,7 +7,6 @@
 #include "../Voxels/block.hpp"
 #include "../Logger.hpp"
 
-#define VERTEX_SIZE (3 + 2)
 #define IS_IN(X,Y,Z) ((X) >= 0 && (X) < CHUNK_SIZE && (Y) >= 0 && (Y) < CHUNK_Y && (Z) >= 0 && (Z) < CHUNK_SIZE)
 #define VOXEL(X,Y,Z) (chunk->blocks[((Y) * CHUNK_SIZE + (Z)) * CHUNK_SIZE + (X)])
 #define IS_BLOCKED(X,Y,Z) ((IS_IN(X, Y, Z)) && VOXEL(X, Y, Z).id)
@@ -23,7 +22,7 @@ BlockRenderer::~BlockRenderer()
 
 }
 
-nModel::Model *BlockRenderer::render(Chunk *chunk, const Chunk **pChunk)
+nModel::Model *BlockRenderer::createMesh(Chunk *chunk, const Chunk **pChunk)
 {
     std::vector<glm::vec3> coords;
     std::vector<glm::vec2> texCoords;

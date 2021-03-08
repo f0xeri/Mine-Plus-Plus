@@ -10,6 +10,5 @@ int main()
     Window window("Mine++", 1920, 1080);
     window.makeContextCurrent();
     window.startLoop();
-    glfwTerminate();
     return 0;
 }

@@ -15,8 +15,8 @@ Controls::Controls(State *s) {
 
 void toggleCursor(GLFWwindow *window)
 {
-    localState->cursor_locked = !localState->cursor_locked;
-    glfwSetInputMode(window, GLFW_CURSOR, localState->cursor_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    localState->cursorLocked = !localState->cursorLocked;
+    glfwSetInputMode(window, GLFW_CURSOR, localState->cursorLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode)
@@ -60,10 +60,14 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
         std::thread loadThread(&ChunkManager::loadMap, localState->chunks);
         loadThread.detach();
     }
+    if (key == GLFW_KEY_I && action == GLFW_PRESS)
+    {
+        localState->showPolygons = !localState->showPolygons;
+    }
     if (key == GLFW_KEY_F3 && action == GLFW_PRESS)
     {
-        localState->show_debug = !localState->show_debug;
-        localState->show_inventory = !localState->show_inventory;
+        localState->showDebug = !localState->showDebug;
+        localState->showInventory = !localState->showInventory;
     }
     if (key == GLFW_KEY_1 && action == GLFW_PRESS)
     {
@@ -99,14 +103,14 @@ void updateInputs(GLFWwindow *window)
 
 void cursorCallback(GLFWwindow *window, double xpos, double ypos)
 {
-    if (localState->cursor_started){
+    if (localState->cursorStarted){
         localState->deltaX += xpos - localState->x;
         localState->deltaY += ypos - localState->y;
     }
-    else localState->cursor_started = true;
+    else localState->cursorStarted = true;
     localState->x = xpos;
     localState->y = ypos;
-    if (localState->cursor_locked)
+    if (localState->cursorLocked)
     {
         localState->camY += -localState->deltaY / Window::_height * 2;
         localState->camX += -localState->deltaX / Window::_height * 2;
