@@ -1,6 +1,8 @@
 # Mine-Plus-Plus
 Minecraft-style game created using C++ and OpenGL
 
+![image](https://user-images.githubusercontent.com/25245692/110043085-3b4a7580-7d60-11eb-9cba-13e3757f81c9.png)
+
 ## Done
 - Chunk render
 - Simple world generation
