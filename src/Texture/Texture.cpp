@@ -37,7 +37,7 @@ void Texture::loadTexture()
     if (!data)
     {
         LOG("[ERROR] Failed to open texture " + std::string(name) + "\n\t" + stbi_failure_reason());
-        throw std::runtime_error("Failed to open texture " + std::string(name) + "\n\t" + stbi_failure_reason());
+        // throw std::runtime_error("Failed to open texture " + std::string(name) + "\n\t" + stbi_failure_reason());
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 

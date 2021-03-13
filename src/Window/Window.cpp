@@ -8,8 +8,8 @@
 #include <sstream>
 #include "Window.hpp"
 #include "../Logger.hpp"
-#include "../Model/Model.hpp"
-#include "../Program/Program.hpp"
+#include "../Model/Mesh.hpp"
+#include "../Shader/Shader.hpp"
 #include "../Texture/Texture.hpp"
 #include "../Camera/Camera.h"
 #include "../BlockRenderer/BlockRenderer.hpp"
@@ -69,7 +69,7 @@ Window::Window(const char *title, int width, int height)
 
     state = new State();
     state->camera = new Camera({0, 10, 0}, 60.0f);
-    state->chunks = new ChunkManager(12, 1, 12);
+    state->chunks = new ChunkManager(6, 1, 6);
     state->window = mainWindow;
     glfwSwapInterval(state->vsync);
     controls = new Controls(state);
@@ -158,46 +158,24 @@ void renderQuad()
     glBindVertexArray(0);
 }
 
-int renderScene(nModel::Program &shader, Texture *texture_atlas, int cx, int cz)
-{
-    mat4 model = mat4(1.0f);
-    Chunk *chunk;
-    nModel::Model *mesh;
-    int chunksOnSceneCounter = 0;
-    for (int x_ = cx - 12; x_ <= cx + 12; x_++)
-    {
-        for (int z_ = cz - 12; z_ <= cz + 12; z_++)
-        {
-            chunk = state->chunks->chunksDict.at({x_, z_});
-            mesh = chunk->mesh;
-            model = mat4(1.0f);
-            model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
-            shader.uniformMatrix(model, "model");
-            mesh->draw();
-            chunksOnSceneCounter++;
-        }
-    }
-    return chunksOnSceneCounter;
-}
-
 void Window::startLoop()
 {
     mat4 model(1.0f);
     state->camera = new Camera(vec3(0, 10, 0), radians(60.0f));
     Texture *texture_atlas = new Texture("res/textures/texture_atlas.png");
     texture_atlas->loadTexture();
-    BlockRenderer newChunkRenderer(1);
+    BlockRenderer chunkRenderer(1);
 
     for (auto &chunk : state->chunks->chunksDict)
     {
-        nModel::Model *mesh = newChunkRenderer.createMesh(chunk.second, nullptr);
+        Mesh *mesh = chunkRenderer.createMesh(chunk.second);
         chunk.second->mesh = mesh;
     }
 
     glEnable(GL_DEPTH_TEST);
     //glEnable(GL_CULL_FACE);
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    nModel::Program shader("vert", "frag");
+    Shader shader("vert", "frag");
     shader.bindAttribute(0, "position");
     shader.bindAttribute(1, "color");
     shader.bindAttribute(2, "texCoord");
@@ -206,7 +184,7 @@ void Window::startLoop()
     shader.use();
     texture_atlas->bind();
 
-    nModel::Model crosshairMesh;
+    Mesh crosshairMesh;
     crosshairMesh.addVertexBufferObject({
                                                 {0.0f, -0.02f, 0.0f},
                                                 {0.0f, 0.02f, 0.0f},
@@ -216,7 +194,7 @@ void Window::startLoop()
 
     crosshairMesh.addIndices({0, 1, 2, 3});
 
-    nModel::Program crosshairShader("crosshairVert", "crosshairFrag");
+    Shader crosshairShader("crosshairVert", "crosshairFrag");
     crosshairShader.bindAttribute(0, "position");
     crosshairShader.link();
 
@@ -227,12 +205,6 @@ void Window::startLoop()
 
     vec3 lightPos = {state->camera->pos.x, 50, state->camera->pos.z};
 
-    nModel::Program simpleDepthShader("vertDepthShader", "fragDepthShader");
-    simpleDepthShader.link();
-
-    nModel::Program debugQuad("vertDebugQuad", "fragDebugQuad");
-    debugQuad.link();
-
     mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
 
     while (!glfwWindowShouldClose(mainWindow))
@@ -241,13 +213,15 @@ void Window::startLoop()
         state->deltaTime = glfwGetTime() - lastTime;
         lastTime = currentTime;
 
+        chunksOnSceneCounter = 0;
+
         updateInputs(mainWindow);
 
         glClearColor(0.5, 0.8, 1, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         Chunk *chunk;
-        nModel::Model *mesh;
+        Mesh *mesh;
         int cx = state->camera->pos.x / CHUNK_SIZE;
         int cz = state->camera->pos.z / CHUNK_SIZE;
 
@@ -267,7 +241,7 @@ void Window::startLoop()
             count++;
             delete chunk->mesh;
 
-            mesh = newChunkRenderer.createMesh(chunk, (const Chunk **) closes);
+            mesh = chunkRenderer.createMesh(chunk);
             chunk->mesh = mesh;
             i++;
         }
@@ -286,8 +260,9 @@ void Window::startLoop()
         glUniform3f(glGetUniformLocation(shader.mProgram, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
         glActiveTexture(GL_TEXTURE0);
         texture_atlas->bind();
-        chunksOnSceneCounter = renderScene(shader, texture_atlas, cx, cz);
+        chunkRenderer.render(*state->chunks, cx, cz, 6, shader, chunksOnSceneCounter);
 
+        // crosshair render
         crosshairShader.use();
         crosshairShader.uniformMatrix(mat4(1.0f), "model");
         crosshairShader.uniformMatrix(orthoMatrix, "projView");
@@ -297,6 +272,7 @@ void Window::startLoop()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        // GUI render
         if (state->showDebug)
         {
             ImGuiWindowFlags window_flags = 0;

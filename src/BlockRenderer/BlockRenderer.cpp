@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <glm/glm.hpp>
 #include "BlockRenderer.hpp"
 #include "../Voxels/block.hpp"
 #include "../Logger.hpp"
@@ -22,7 +23,7 @@ BlockRenderer::~BlockRenderer()
 
 }
 
-nModel::Model *BlockRenderer::createMesh(Chunk *chunk, const Chunk **pChunk)
+Mesh *BlockRenderer::createMesh(Chunk *chunk)
 {
     std::vector<glm::vec3> coords;
     std::vector<glm::vec2> texCoords;
@@ -238,7 +239,27 @@ nModel::Model *BlockRenderer::createMesh(Chunk *chunk, const Chunk **pChunk)
                     indecesIndex += 4;
                 }
             }
-    nModel::Model *chuckModel = new nModel::Model();
+    Mesh *chuckModel = new Mesh();
     chuckModel->addData(coords, texCoords, normal, indices);
     return chuckModel;
+}
+
+void BlockRenderer::render(ChunkManager &chunks, int cx, int cz, int viewDistance, Shader &shader, int &renderedChunks)
+{
+    Chunk *chunk;
+    Mesh *mesh;
+    mat4 model;
+    for (int x_ = cx - viewDistance; x_ <= cx + viewDistance; x_++)
+    {
+        for (int z_ = cz - viewDistance; z_ <= cz + viewDistance; z_++)
+        {
+            chunk = chunks.chunksDict.at({x_, z_});
+            mesh = chunk->mesh;
+            model = mat4(1.0f);
+            model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
+            shader.uniformMatrix(model, "model");
+            mesh->draw();
+            renderedChunks++;
+        }
+    }
 }

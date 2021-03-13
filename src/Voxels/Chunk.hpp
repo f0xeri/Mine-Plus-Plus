@@ -7,10 +7,10 @@
 
 
 #include <map>
-#include "../CubeRenderer/CubeRenderer.hpp"
 #include "block.hpp"
+#include "../Model/Mesh.hpp"
 
-#define CHUNK_SIZE 16
+#define CHUNK_SIZE 32
 #define CHUNK_Y 256  // experimental
 // #define CHUNK_VOLUME CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE
 #define CHUNK_VOLUME CHUNK_SIZE * CHUNK_Y * CHUNK_SIZE
@@ -19,7 +19,7 @@ class Chunk {
 public:
     int x = 0, y = 0, z = 0;
     block *blocks;
-    nModel::Model *mesh = nullptr;
+    Mesh *mesh = nullptr;
     bool modified = true;
 
     void getHeightIn(int xMin, int zMin, int xMax, int zMax);

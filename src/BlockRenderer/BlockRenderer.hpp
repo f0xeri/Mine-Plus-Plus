@@ -7,6 +7,8 @@
 
 
 #include "../Voxels/Chunk.hpp"
+#include "../ChunkManager/ChunkManager.hpp"
+#include "../Shader/Shader.hpp"
 
 class BlockRenderer
 {
@@ -14,7 +16,8 @@ class BlockRenderer
 public:
     explicit BlockRenderer(int capacity);
     ~BlockRenderer();
-    nModel::Model *createMesh(Chunk *chunk, const Chunk **pChunk);
+    Mesh *createMesh(Chunk *chunk);
+    void render(ChunkManager &chunks, int cx, int cz, int viewDistance, Shader &shader, int &renderedChunks);
 };
 
 

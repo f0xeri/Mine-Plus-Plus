@@ -9,8 +9,8 @@ INCLUDE_DIRECTORIES(
 add_subdirectory(lib/imgui)
 
 add_executable(mine++ src/main.cpp src/Window/Window.cpp src/Window/Window.hpp src/Logger.hpp
-        src/Model/Model.cpp src/Model/Model.hpp
-        src/Program/Program.cpp src/Program/Program.hpp
+        src/Model/Mesh.cpp src/Model/Mesh.hpp
+        src/Shader/Shader.cpp src/Shader/Shader.hpp
         src/Texture/Texture.cpp src/Texture/Texture.hpp
         src/stb_image.h
         src/Camera/Camera.cpp src/Camera/Camera.h
@@ -18,6 +18,6 @@ add_executable(mine++ src/main.cpp src/Window/Window.cpp src/Window/Window.hpp s
         src/Voxels/Chunk.cpp src/Voxels/Chunk.hpp
         src/BlockRenderer/BlockRenderer.cpp src/BlockRenderer/BlockRenderer.hpp
         src/ChunkManager/ChunkManager.cpp src/ChunkManager/ChunkManager.hpp
-        src/CubeRenderer/CubeRenderer.cpp src/CubeRenderer/CubeRenderer.hpp src/Controls/Controls.cpp src/Controls/Controls.h src/State.hpp)
+        src/Controls/Controls.cpp src/Controls/Controls.h src/State.hpp)
 
 target_link_libraries(mine++ imgui opengl32 glfw3 glew32)
