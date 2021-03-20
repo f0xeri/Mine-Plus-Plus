@@ -85,6 +85,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     {
         localState->currentBlockId = 6;
     }
+    if (key == GLFW_KEY_5 && action == GLFW_PRESS)
+    {
+        localState->currentBlockId = 7;
+    }
     if (key == GLFW_KEY_0 && action == GLFW_PRESS)
     {
         localState->currentBlockId = 0;
@@ -115,14 +119,14 @@ void cursorCallback(GLFWwindow *window, double xpos, double ypos)
         localState->camY += -localState->deltaY / Window::_height * 2;
         localState->camX += -localState->deltaX / Window::_height * 2;
 
-        if (localState->camY < -radians(89.0f)){
-            localState->camY = -radians(89.0f);
+        if (localState->camY < -glm::radians(89.0f)){
+            localState->camY = -glm::radians(89.0f);
         }
-        if (localState->camY > radians(89.0f)){
-            localState->camY = radians(89.0f);
+        if (localState->camY > glm::radians(89.0f)){
+            localState->camY = glm::radians(89.0f);
         }
 
-        localState->camera->rotation = mat4(1.0f);
+        localState->camera->rotation = glm::mat4(1.0f);
         localState->camera->rotate(localState->camY, localState->camX, 0);
     }
     localState->deltaX = localState->deltaY = 0.0f;
@@ -137,10 +141,10 @@ void resizeCallback(GLFWwindow *window, int width, int height)
 
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-    vec3 end;
-    vec3 norm;
-    vec3 iend;
-    block *block = localState->chunks->rayCast(localState->camera->pos, localState->camera->front, 10.0f, end, norm, iend);
+    glm::vec3 end;
+    glm::vec3 norm;
+    glm::vec3 iend;
+    Block *block = localState->chunks->rayCast(localState->camera->pos, localState->camera->front, 10.0f, end, norm, iend);
 
     if (block != nullptr)
     {

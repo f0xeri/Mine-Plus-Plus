@@ -44,15 +44,15 @@ Chunk* ChunkManager::getChunk(int x, int y, int z){
         return nullptr;
 }
 
-block *ChunkManager::get(int x, int y, int z)
+Block *ChunkManager::get(int x, int y, int z)
 {
     int cx = x / CHUNK_SIZE;
     int cy = y / CHUNK_Y;
     int cz = z / CHUNK_SIZE;
 
-    if (x < 0 && x % 16 != 0) cx--;
+    if (x < 0 && x % CHUNK_SIZE != 0) cx--;
     if (y < 0) cy--;
-    if (z < 0 && z % 16 != 0) cz--;
+    if (z < 0 && z % CHUNK_SIZE != 0) cz--;
     if (chunksDict.count({cx, cz}) == 0) {
         return nullptr;
     }
@@ -73,9 +73,9 @@ void ChunkManager::set(int x, int y, int z, int id)
     int cx = x / CHUNK_SIZE;
     int cy = y / CHUNK_Y;
     int cz = z / CHUNK_SIZE;
-    if (x < 0 && x % 16 != 0) cx--;
+    if (x < 0 && x % CHUNK_SIZE != 0) cx--;
     if (y < 0) cy--;
-    if (z < 0 && z % 16 != 0) cz--;
+    if (z < 0 && z % CHUNK_SIZE != 0) cz--;
     if (chunksDict.count({cx, cz}) == 0)
         return;
     Chunk* chunk = chunksDict[{cx, cz}];
@@ -95,7 +95,7 @@ void ChunkManager::set(int x, int y, int z, int id)
     if (lz == CHUNK_SIZE - 1 && (chunk = getChunk(cx, cy, cz+1))) chunk->modified = true;
 }
 
-block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec3& end, glm::vec3& norm, glm::vec3& iend) {
+Block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec3& end, glm::vec3& norm, glm::vec3& iend) {
     float px = a.x;
     float py = a.y;
     float pz = a.z;
@@ -131,7 +131,7 @@ block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec
 
     while (t <= maxDist)
     {
-        block* block = get(ix, iy, iz);
+        Block* block = get(ix, iy, iz);
         if (block == nullptr || block->id)
         {
             end.x = px + t * dx;

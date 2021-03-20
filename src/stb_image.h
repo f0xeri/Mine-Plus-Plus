@@ -254,7 +254,7 @@ RECENT REVISION HISTORY:
 //     stbi_ldr_to_hdr_scale(1.0f);
 //     stbi_ldr_to_hdr_gamma(2.2f);
 //
-// Finally, given a filename (or an open file or memory block--see header
+// Finally, given a filename (or an open file or memory Block--see header
 // file for details) containing image data, you can query for the "most
 // appropriate" interface to use (that is, whether the image is HDR or
 // not), using:
@@ -316,7 +316,7 @@ RECENT REVISION HISTORY:
 //    This is to let programs in the wild set an upper bound to prevent
 //    denial-of-service attacks on untrusted data, as one could generate a
 //    valid image of gigantic dimensions and force stb_image to allocate a
-//    huge block of memory and spend disproportionate time decoding it. By
+//    huge Block of memory and spend disproportionate time decoding it. By
 //    default this is set to (1 << 24), which is 16777216, but that's still
 //    very big.
 
@@ -2122,7 +2122,7 @@ static const stbi_uc stbi__jpeg_dezigzag[64+15] =
    63, 63, 63, 63, 63, 63, 63
 };
 
-// decode one 64-entry block--
+// decode one 64-entry Block--
 static int stbi__jpeg_decode_block(stbi__jpeg *j, short data[64], stbi__huffman *hdc, stbi__huffman *hac, stbi__int16 *fac, int b, stbi__uint16 *dequant)
 {
    int diff,dc,k;
@@ -2162,7 +2162,7 @@ static int stbi__jpeg_decode_block(stbi__jpeg *j, short data[64], stbi__huffman 
          s = rs & 15;
          r = rs >> 4;
          if (s == 0) {
-            if (rs != 0xf0) break; // end block
+            if (rs != 0xf0) break; // end Block
             k += 16;
          } else {
             k += r;
@@ -2282,7 +2282,7 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
                   j->eob_run = (1 << r) - 1;
                   if (r)
                      j->eob_run += stbi__jpeg_get_bits(j, r);
-                  r = 64; // force end of block
+                  r = 64; // force end of Block
                } else {
                   // r=15 s=0 should write 16 0s, so we just do
                   // a run of 15 0s and then write s (which is 0),
@@ -2864,7 +2864,7 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
          int i,j;
          STBI_SIMD_ALIGN(short, data[64]);
          int n = z->order[0];
-         // non-interleaved data, we just need to process one block at a time,
+         // non-interleaved data, we just need to process one Block at a time,
          // in trivial scanline order
          // number of blocks to do just depends on how many actual "pixels" this
          // component has, independent of interleaved MCU blocking and such
@@ -2875,7 +2875,7 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
                int ha = z->img_comp[n].ha;
                if (!stbi__jpeg_decode_block(z, data, z->huff_dc+z->img_comp[n].hd, z->huff_ac+ha, z->fast_ac[ha], n, z->dequant[z->img_comp[n].tq])) return 0;
                z->idct_block_kernel(z->img_comp[n].data+z->img_comp[n].w2*j*8+i*8, z->img_comp[n].w2, data);
-               // every data block is an MCU, so countdown the restart interval
+               // every data Block is an MCU, so countdown the restart interval
                if (--z->todo <= 0) {
                   if (z->code_bits < 24) stbi__grow_buffer_unsafe(z);
                   // if it's NOT a restart, then just bail, so we get corrupt data
@@ -2921,7 +2921,7 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
       if (z->scan_n == 1) {
          int i,j;
          int n = z->order[0];
-         // non-interleaved data, we just need to process one block at a time,
+         // non-interleaved data, we just need to process one Block at a time,
          // in trivial scanline order
          // number of blocks to do just depends on how many actual "pixels" this
          // component has, independent of interleaved MCU blocking and such
@@ -2938,7 +2938,7 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
                   if (!stbi__jpeg_decode_block_prog_ac(z, data, &z->huff_ac[ha], z->fast_ac[ha]))
                      return 0;
                }
-               // every data block is an MCU, so countdown the restart interval
+               // every data Block is an MCU, so countdown the restart interval
                if (--z->todo <= 0) {
                   if (z->code_bits < 24) stbi__grow_buffer_unsafe(z);
                   if (!STBI__RESTART(z->marker)) return 1;
@@ -3063,7 +3063,7 @@ static int stbi__process_marker(stbi__jpeg *z, int m)
          return L==0;
    }
 
-   // check for comment block or APP blocks
+   // check for comment Block or APP blocks
    if ((m >= 0xE0 && m <= 0xEF) || m == 0xFE) {
       L = stbi__get16be(z->s);
       if (L < 2) {
@@ -3329,7 +3329,7 @@ static int stbi__decode_jpeg_image(stbi__jpeg *j)
    return 1;
 }
 
-// static jfif-centered resampling (across block boundaries)
+// static jfif-centered resampling (across Block boundaries)
 
 typedef stbi_uc *(*resample_row_func)(stbi_uc *out, stbi_uc *in0, stbi_uc *in1,
                                     int w, int hs);
@@ -3441,7 +3441,7 @@ static stbi_uc *stbi__resample_row_hv_2_simd(stbi_uc *out, stbi_uc *in_near, stb
       // row. "prev" is current row shifted right by 1 pixel; we need to
       // insert the previous pixel value (from t1).
       // "next" is current row shifted left by 1 pixel, with first pixel
-      // of next block of 8 pixels added in.
+      // of next Block of 8 pixels added in.
       __m128i prv0 = _mm_slli_si128(curr, 2);
       __m128i nxt0 = _mm_srli_si128(curr, 2);
       __m128i prev = _mm_insert_epi16(prv0, t1, 0);
@@ -3481,7 +3481,7 @@ static stbi_uc *stbi__resample_row_hv_2_simd(stbi_uc *out, stbi_uc *in_near, stb
       // row. "prev" is current row shifted right by 1 pixel; we need to
       // insert the previous pixel value (from t1).
       // "next" is current row shifted left by 1 pixel, with first pixel
-      // of next block of 8 pixels added in.
+      // of next Block of 8 pixels added in.
       int16x8_t prv0 = vextq_s16(curr, curr, 7);
       int16x8_t nxt0 = vextq_s16(curr, curr, 1);
       int16x8_t prev = vsetq_lane_s16(t1, prv0, 0);
@@ -6518,7 +6518,7 @@ static stbi_uc *stbi__process_gif_raster(stbi__context *s, stbi__gif *g)
    for(;;) {
       if (valid_bits < codesize) {
          if (len == 0) {
-            len = stbi__get8(s); // start new block
+            len = stbi__get8(s); // start new Block
             if (len == 0)
                return g->out;
          }

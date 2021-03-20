@@ -7,7 +7,7 @@
 
 
 #include <map>
-#include "block.hpp"
+#include "Block.hpp"
 #include "../Model/Mesh.hpp"
 
 #define CHUNK_SIZE 32
@@ -18,7 +18,7 @@
 class Chunk {
 public:
     int x = 0, y = 0, z = 0;
-    block *blocks;
+    Block *blocks;
     Mesh *mesh = nullptr;
     bool modified = true;
 

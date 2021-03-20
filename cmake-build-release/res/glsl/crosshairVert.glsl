@@ -1,4 +1,4 @@
-#version 460
+#version 420
 
 layout (location = 0) in vec2 position;
 

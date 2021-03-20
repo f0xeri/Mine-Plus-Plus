@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(mine++)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE Debug)
 
 INCLUDE_DIRECTORIES(
         ${GL_INCLUDE_DIR}
@@ -14,7 +15,7 @@ add_executable(mine++ src/main.cpp src/Window/Window.cpp src/Window/Window.hpp s
         src/Texture/Texture.cpp src/Texture/Texture.hpp
         src/stb_image.h
         src/Camera/Camera.cpp src/Camera/Camera.h
-        src/Voxels/block.cpp src/Voxels/block.hpp
+        src/Voxels/Block.cpp src/Voxels/Block.hpp
         src/Voxels/Chunk.cpp src/Voxels/Chunk.hpp
         src/BlockRenderer/BlockRenderer.cpp src/BlockRenderer/BlockRenderer.hpp
         src/ChunkManager/ChunkManager.cpp src/ChunkManager/ChunkManager.hpp

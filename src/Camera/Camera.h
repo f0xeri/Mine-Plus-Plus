@@ -9,25 +9,23 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-using namespace glm;
-
 class Camera
 {
 private:
     void updateVectors();
 public:
     float FOV;
-    vec3 pos;
-    mat4 rotation;
-    vec3 front;
-    vec3 up;
-    vec3 right;
+    glm::vec3 pos;
+    glm::mat4 rotation;
+    glm::vec3 front;
+    glm::vec3 up;
+    glm::vec3 right;
 
-    Camera(vec3 pos, float FOV);
+    Camera(glm::vec3 pos, float FOV);
     ~Camera();
 
-    mat4 getProjectionMatrix();
-    mat4 getViewMatrix();
+    glm::mat4 getProjectionMatrix();
+    glm::mat4 getViewMatrix();
     void rotate(float x, float y, float z);
 };
 

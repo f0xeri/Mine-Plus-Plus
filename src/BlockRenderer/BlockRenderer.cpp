@@ -5,7 +5,7 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include "BlockRenderer.hpp"
-#include "../Voxels/block.hpp"
+#include "../Voxels/Block.hpp"
 #include "../Logger.hpp"
 
 #define IS_IN(X,Y,Z) ((X) >= 0 && (X) < CHUNK_SIZE && (Y) >= 0 && (Y) < CHUNK_Y && (Z) >= 0 && (Z) < CHUNK_SIZE)
@@ -30,14 +30,14 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
     std::vector<glm::vec3> normal;
     std::vector<int> indices;
     int indecesIndex = 0;
-    float dImin = 0.35f;  // diffuseIntesitivityMin
+    float dImin = 0.0f;  // diffuseIntesitivityMin
     float dImax = 1.0f;  // diffuseIntesitivityMax
     int s = 1;
     for (int y = 0; y < CHUNK_Y; y++)
         for (int z = 0; z < CHUNK_SIZE; z++)
             for (int x = 0; x < CHUNK_SIZE; x++)
             {
-                block blk = chunk->blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
+                Block blk = chunk->blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
                 unsigned int id = blk.id;
 
                 float pixelSize = 1.0f / 512.0f;
@@ -59,7 +59,7 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
                             {0 + x, s + y, 0 + z}
                     });
 
-                    // if this block is a grass block, we should use another texture for top and sides
+                    // if this Block is a grass Block, we should use another texture for top and sides
                     float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
                     if (blk.id == 3) {
                         uu = (5 % 16) * tOffset;
@@ -87,7 +87,7 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
                 // back side
                 if (!IS_BLOCKED(x, y,z - 1))
                 {
-                    // if this block is a grass block, we should use another texture for top and sides
+                    // if this Block is a grass Block, we should use another texture for top and sides
                     float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
                     if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
                         uu = (4 % 16) * tOffset;
@@ -120,7 +120,7 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
                 // front side
                 if (!IS_BLOCKED(x, y,z + 1))
                 {
-                    // if this block is a grass block, we should use another texture for top and sides
+                    // if this Block is a grass Block, we should use another texture for top and sides
                     float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
                     if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
                         uu = (4 % 16) * tOffset;
@@ -175,7 +175,7 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
                 // right side
                 if (!IS_BLOCKED(x + 1, y, z))
                 {
-                    // if this block is a grass block, we should use another texture for top and sides
+                    // if this Block is a grass Block, we should use another texture for top and sides
                     float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
                     if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
                         uu = (4 % 16) * tOffset;
@@ -208,7 +208,7 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
                 // left side
                 if (!IS_BLOCKED(x - 1, y, z))
                 {
-                    // if this block is a grass block, we should use another texture for top and sides
+                    // if this Block is a grass Block, we should use another texture for top and sides
                     float uu = u, vv = v, uu1 = u1, uu2 = u2, vv1 = v1, vv2 = v2;
                     if (blk.id == 3 && !IS_BLOCKED(x, y + 1, z)) {
                         uu = (4 % 16) * tOffset;
@@ -248,15 +248,15 @@ void BlockRenderer::render(ChunkManager &chunks, int cx, int cz, int viewDistanc
 {
     Chunk *chunk;
     Mesh *mesh;
-    mat4 model;
+    glm::mat4 model;
     for (int x_ = cx - viewDistance; x_ <= cx + viewDistance; x_++)
     {
         for (int z_ = cz - viewDistance; z_ <= cz + viewDistance; z_++)
         {
             chunk = chunks.chunksDict.at({x_, z_});
             mesh = chunk->mesh;
-            model = mat4(1.0f);
-            model = translate(model, vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
+            model = glm::mat4(1.0f);
+            model = translate(model, glm::vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
             shader.uniformMatrix(model, "model");
             mesh->draw();
             renderedChunks++;

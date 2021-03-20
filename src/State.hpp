@@ -29,7 +29,6 @@ struct State
     bool showPolygons = false;
     float camX = 0.0f;
     float camY = 0.0f;
-
     bool vsync = false;
 
     int nbFrames = 0;

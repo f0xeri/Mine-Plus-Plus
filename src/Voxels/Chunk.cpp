@@ -5,14 +5,14 @@
 #include <cmath>
 #include <vector>
 #include "Chunk.hpp"
-#include "block.hpp"
+#include "Block.hpp"
 #include "../Logger.hpp"
 #include <glm/gtc/noise.hpp>
 
 
 Chunk::Chunk(int xpos, int ypos, int zpos) : x(xpos), y(ypos), z(zpos)
 {
-    blocks = new block[CHUNK_VOLUME];
+    blocks = new Block[CHUNK_VOLUME];
     for (int z_ = 0; z_ < CHUNK_SIZE; z_++)
         for (int x_ = 0; x_ < CHUNK_SIZE; x_++)
         {
@@ -26,9 +26,13 @@ Chunk::Chunk(int xpos, int ypos, int zpos) : x(xpos), y(ypos), z(zpos)
                 int real_y = y_ + this->y * CHUNK_Y;
                 int id = (real_y <= height * 10 + 5) == 1 ? 3 : 0;
                 if (real_y <= 2)
-                    id = 2;
+                   id = 2;
+
+                /*int id = 0;
+                if (real_y <= 2)
+                    id = 1;*/
                 blocks[(y_ * CHUNK_SIZE + z_) * CHUNK_SIZE + x_].id = id;
-                // blocksDict[{x, y, z}] = new block(id);
+                // blocksDict[{x, y, z}] = new Block(id);
             }
         }
 
