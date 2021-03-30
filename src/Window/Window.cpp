@@ -39,6 +39,7 @@ Window::Window(const char *title, int width, int height)
     }
     else LOG("[INFO] GLFW inited.");
     //glfwWindowHint(GLFW_SAMPLES, 8);
+    //glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -160,8 +161,8 @@ void renderQuad()
 
 std::vector<glm::vec3> getFrustrumPoints(Camera *camera)
 {
-    float nearDist = 0.1f;
-    float farDist = 50.0f;
+    float nearDist = 0.0f;
+    float farDist = 25.0f;
     auto tanFOV = glm::tan(camera->FOV / 2);
     auto hNear = 2 * tanFOV * nearDist;
     auto wNear = hNear * ASPECT_RATIO;
@@ -256,7 +257,7 @@ void Window::startLoop()
 
     int chunksOnSceneCounter = 0;
 
-    vec3 lightDir = {state->camera->pos.x, 50, state->camera->pos.z};
+    vec3 lightDir = {-0.2f, -1.0f, -0.3f};
 
     mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
 
@@ -276,7 +277,7 @@ void Window::startLoop()
         int cx = state->camera->pos.x / CHUNK_SIZE;
         int cz = state->camera->pos.z / CHUNK_SIZE;
 
-        lightDir = {-0.2f, -1.0f, -0.3f};
+        // lightDir = {-0.2f, -1.0f, -0.3f};
         generateNewChunksIfNeeded(cx, cz);
 
         showFPS(mainWindow, chunksOnSceneCounter);
@@ -292,10 +293,8 @@ void Window::startLoop()
                 continue;
             chunk->modified = false;
             count++;
-            delete chunk->mesh;
 
-            mesh = chunkRenderer.createMesh(chunk);
-            chunk->mesh = mesh;
+            chunk->mesh = chunkRenderer.createMesh(chunk);
             i++;
         }
 
@@ -305,47 +304,59 @@ void Window::startLoop()
             centroid += p;
         }
         centroid /= mainCamPoints.size();
-        //LOG(centroid.x << " " << centroid.y << " " << centroid.z)
         float distFromCentroid = 10.0f;
         glm::vec3 lightCamPos = centroid - lightDir * distFromCentroid;
-        //lightView = glm::lookAt(lightCamPos, centroid, glm::vec3(0.0, 1.0, 0.0));
 
         glm::mat4 lightProjection, lightView;
         glm::mat4 lightSpaceMatrix;
-        //float near_plane = 1.0f, far_plane = 180.5f;
-        //lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-        //lightView = glm::lookAt({0, 0, 0}, lightDir, glm::vec3(0.0, 1.0, 0.0));
-        glm::vec3 min(10000);
-        glm::vec3 max(-10000);
+
         lightView = glm::lookAt(lightCamPos, centroid, glm::vec3(0.0, 1.0, 0.0));
 
+        glm::vec3 min(0.0f);
+        glm::vec3 max(0.0f);
         glm::vec3 result(0.0f);
-        for (auto p : mainCamPoints)
-        {
-            //result = vec4(p, 1.0f) * lightView;
-            result = p;
+        bool first = true;
 
-            if(result.x < min.x)
-                min.x = result.x;
-            else if(result.x > max.x)
-                max.x = result.x;
-
-            if(result.y < min.y)
-                min.y = result.y;
-            else if(result.y > max.y)
-                max.y = result.y;
-
-            if(result.z < min.z)
-                min.z = result.z;
-            else if(result.z > max.z)
-                max.z = result.z;
+        for (auto point : mainCamPoints) {
+            point = vec4(point, 1.0f) * lightView;
+            if (first) {
+                min.x = point.x;
+                max.x = point.x;
+                min.y = point.y;
+                max.y = point.y;
+                min.z = point.z;
+                max.z = point.z;
+                first = false;
+                continue;
+            }
+            if (point.x > max.x) {
+                max.x = point.x;
+            } else if (point.x < min.x) {
+                min.x = point.x;
+            }
+            if (point.y > max.y) {
+                max.y = point.y;
+            } else if (point.y < min.y) {
+                min.y = point.y;
+            }
+            if (point.z > max.z) {
+                max.z = point.z;
+            } else if (point.z < min.z) {
+                min.z = point.z;
+            }
         }
-        float xh = (glm::abs(max.x) + glm::abs(min.x)) * 0.5f;
-        float yh = (glm::abs(max.y) + glm::abs(min.y)) * 0.5f;
-        lightProjection = glm::ortho(-xh, xh, -yh, yh, -max.z, -min.z);
+
+        lightProjection = glm::mat4(1.0f);
+        lightProjection[0][0] = 2.0f / (max.x - min.x);
+        lightProjection[1][1] = 2.0f / (max.y - min.y);
+        lightProjection[2][2] = -2.0f / (max.z - min.z);
+        lightProjection[3][3] = 1;
+        // lightProjection = glm::ortho(-xh, xh, -yh, yh, -max.z, -min.z);
+        //lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.0f, 80.0f);
         //lightProjection = glm::ortho(min.x, max.x, min.y, max.y, min.z, max.z);
 
         lightSpaceMatrix = lightProjection * lightView;
+        // lightSpaceMatrix[3][1] = 0;
         // render scene from light's point of view
         simpleDepthShader.use();
         simpleDepthShader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
@@ -356,7 +367,9 @@ void Window::startLoop()
 
         glActiveTexture(GL_TEXTURE0);
         texture_atlas->bind();
+        glCullFace(GL_FRONT);
         chunkRenderer.render(*state->chunks, cx, cz, 6, simpleDepthShader, chunksOnSceneCounter);
+        //chunkRenderer.render(*state->chunks, cx, cz, state->camera->front.y > 0, mainCamPoints, simpleDepthShader, chunksOnSceneCounter);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -377,7 +390,10 @@ void Window::startLoop()
         texture_atlas->bind();
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, depthMap);
+        glCullFace(GL_BACK);
         chunkRenderer.render(*state->chunks, cx, cz, 6, shader, chunksOnSceneCounter);
+
+        //chunkRenderer.render(*state->chunks, cx, cz, state->camera->front.y > 0, mainCamPoints, shader, chunksOnSceneCounter);
 
         // crosshair render
         crosshairShader.use();
@@ -411,7 +427,7 @@ void Window::startLoop()
                 show_debug = false;*/
             std::stringstream resSS;
 
-            resSS << "CAM FRUSTRUM POINTS\n";
+            /*resSS << "CAM FRUSTRUM POINTS\n";
             resSS << mainCamPoints[0].x << " " << mainCamPoints[0].y << " " << mainCamPoints[0].z << "\n";
             resSS << mainCamPoints[1].x << " " << mainCamPoints[1].y << " " << mainCamPoints[1].z << "\n";
             resSS << mainCamPoints[2].x << " " << mainCamPoints[2].y << " " << mainCamPoints[2].z << "\n";
@@ -427,16 +443,26 @@ void Window::startLoop()
             resSS << "LIGHTCAM POS\n";
             resSS << lightCamPos.x << " " << lightCamPos.y << " " << lightCamPos.z << "\n\n";
             //resSS << -xh << " " <<  xh << " " <<  -yh << " " <<  yh << " " <<  -max.z << " " <<  -min.z << "\n\n";
-            resSS << "MIN MAX LIGHTCAM\n";
+            resSS << "MIN MAX XH YH LIGHTCAM\n";
             resSS << min.x << " " <<  min.y << " " <<  min.z << "\n";
-            resSS << max.x << " " <<  max.y << " " <<  max.z << "\n\n\n";
-
+            resSS << max.x << " " <<  max.y << " " <<  max.z << "\n";
+            resSS << xh << " " <<  yh <<"\n\n\n";
 
             resSS << "LIGHT PROJECTION\n";
             for (int i = 0; i < 4; i++)
             {
                 resSS << lightProjection[i][0] << " " << lightProjection[i][1] << " " << lightProjection[i][2] << " " << lightProjection[i][3] << "\n";
             }
+            resSS << "\nLIGHT VIEW\n";
+            for (int i = 0; i < 4; i++)
+            {
+                resSS << lightView[i][0] << " " << lightView[i][1] << " " << lightView[i][2] << " " << lightView[i][3] << "\n";
+            }
+            resSS << "\nLIGHT SPACE\n";
+            for (int i = 0; i < 4; i++)
+            {
+                resSS << lightSpaceMatrix[i][0] << " " << lightSpaceMatrix[i][1] << " " << lightSpaceMatrix[i][2] << " " << lightSpaceMatrix[i][3] << "\n";
+            }*/
             ImGui::Text("%s", resSS.str().c_str());
             ImGui::End();
         }

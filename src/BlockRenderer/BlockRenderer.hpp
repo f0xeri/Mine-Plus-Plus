@@ -18,6 +18,7 @@ public:
     ~BlockRenderer();
     Mesh *createMesh(Chunk *chunk);
     void render(ChunkManager &chunks, int cx, int cz, int viewDistance, Shader &shader, int &renderedChunks);
+    void render(ChunkManager &chunks, int cx, int cz, bool frontAngle, std::vector<glm::vec3> &camPoints, Shader &shader, int &renderedChunks);
 };
 
 
