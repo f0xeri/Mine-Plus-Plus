@@ -19,6 +19,6 @@ add_executable(mine++ src/main.cpp src/Window/Window.cpp src/Window/Window.hpp s
         src/Voxels/Chunk.cpp src/Voxels/Chunk.hpp
         src/BlockRenderer/BlockRenderer.cpp src/BlockRenderer/BlockRenderer.hpp
         src/ChunkManager/ChunkManager.cpp src/ChunkManager/ChunkManager.hpp
-        src/Controls/Controls.cpp src/Controls/Controls.h src/State.hpp)
+        src/Controls/Controls.cpp src/Controls/Controls.h src/State.hpp src/GUI/GUIRenderer.cpp src/GUI/GUIRenderer.hpp src/Shadows/ShadowMap.cpp src/Shadows/ShadowMap.hpp)
 
 target_link_libraries(mine++ imgui opengl32 glfw3 glew32)

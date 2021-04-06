@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <vector>
 
 class Camera
 {
@@ -26,6 +27,7 @@ public:
 
     glm::mat4 getProjectionMatrix();
     glm::mat4 getViewMatrix();
+    std::vector<glm::vec3> getFrustrumPoints(float farDist);
     void rotate(float x, float y, float z);
 };
 

@@ -41,3 +41,30 @@ void Camera::rotate(float x, float y, float z)
 
     updateVectors();
 }
+
+std::vector<glm::vec3> Camera::getFrustrumPoints(float farDist) {
+    float nearDist = 0.0f;
+    // float farDist = farDist;
+    float aspectRatio = float(Window::_width) / float(Window::_height);
+    auto tanFOV = glm::tan(FOV / 2);
+    auto hNear = 2 * tanFOV * nearDist;
+    auto wNear = hNear * aspectRatio;
+    auto hFar = 2 * tanFOV * farDist;
+    auto wFar = hFar * aspectRatio;
+
+    glm::vec3 fc = pos + front * farDist;
+
+    glm::vec3 ftl = fc + (up * glm::vec3(hFar) / glm::vec3(2.0f)) - (right * glm::vec3(wFar) / glm::vec3(2.0f));
+    glm::vec3 ftr = fc + (up * glm::vec3(hFar) / glm::vec3(2.0f)) + (right * glm::vec3(wFar) / glm::vec3(2.0f));
+    glm::vec3 fbl = fc - (up * glm::vec3(hFar) / glm::vec3(2.0f)) - (right * glm::vec3(wFar) / glm::vec3(2.0f));
+    glm::vec3 fbr = fc - (up * glm::vec3(hFar) / glm::vec3(2.0f)) + (right * glm::vec3(wFar) / glm::vec3(2.0f));
+
+    glm::vec3 nc = pos + front * nearDist;
+
+    glm::vec3 ntl = nc + (up * glm::vec3(hNear) / glm::vec3(2.0f)) - (right * glm::vec3(wNear) / glm::vec3(2.0f));
+    glm::vec3 ntr = nc + (up * glm::vec3(hNear) / glm::vec3(2.0f)) + (right * glm::vec3(wNear) / glm::vec3(2.0f));
+    glm::vec3 nbl = nc - (up * glm::vec3(hNear) / glm::vec3(2.0f)) - (right * glm::vec3(wNear) / glm::vec3(2.0f));
+    glm::vec3 nbr = nc - (up * glm::vec3(hNear) / glm::vec3(2.0f)) + (right * glm::vec3(wNear) / glm::vec3(2.0f));
+
+    return std::vector{ftl, ftr, fbl, fbr, ntl, ntr, nbl, nbr};
+}

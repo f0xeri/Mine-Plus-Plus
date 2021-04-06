@@ -22,6 +22,10 @@ struct State
     float x = 0.0f;
     float y = 0.0f;
 
+    glm::vec3 lightDir;
+    glm::vec3 calculatedLightPosition;
+    int viewDistance;
+
     bool cursorLocked = false;
     bool cursorStarted = false;
     bool showDebug = false;
@@ -35,6 +39,11 @@ struct State
 
     double lastTime;
     int currentBlockId = 0;
+};
+
+struct GuiState
+{
+
 };
 
 #endif //MINE_STATE_HPP

@@ -141,6 +141,7 @@ void resizeCallback(GLFWwindow *window, int width, int height)
 
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
+    if (!localState->cursorLocked) return;
     glm::vec3 end;
     glm::vec3 norm;
     glm::vec3 iend;
