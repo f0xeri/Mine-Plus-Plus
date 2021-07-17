@@ -253,13 +253,17 @@ void BlockRenderer::render(ChunkManager &chunks, int cx, int cz, int viewDistanc
     {
         for (int z_ = cz - viewDistance; z_ <= cz + viewDistance; z_++)
         {
-            chunk = chunks.chunksDict.at({x_, z_});
-            mesh = chunk->mesh;
-            model = glm::mat4(1.0f);
-            model = translate(model, glm::vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
-            shader.uniformMatrix(model, "model");
-            mesh->draw();
-            renderedChunks++;
+            auto findResult = chunks.chunksDict.find({x_, z_});
+            if (findResult != chunks.chunksDict.end())
+            {
+                chunk = findResult->second;
+                mesh = chunk->mesh;
+                model = glm::mat4(1.0f);
+                model = translate(model, glm::vec3(chunk->x * CHUNK_SIZE, chunk->y * CHUNK_SIZE, chunk->z * CHUNK_SIZE));
+                shader.uniformMatrix(model, "model");
+                mesh->draw();
+                renderedChunks++;
+            }
         }
     }
 }

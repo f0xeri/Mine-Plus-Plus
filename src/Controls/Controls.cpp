@@ -6,6 +6,7 @@
 #include <iostream>
 #include "Controls.h"
 #include "../Window/Window.hpp"
+#include "../Logger.hpp"
 
 State *localState;
 
@@ -25,19 +26,21 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     {
         toggleCursor(window);
     }
-    if (key == GLFW_KEY_SPACE)
+    if (key == GLFW_KEY_TAB)
         switch (action)
         {
             case GLFW_PRESS:
             {
-                localState->speed = localState->speed * 2;
+                localState->freeFlightMode = !localState->freeFlightMode;
+                localState->speed = 8.0f * (localState->freeFlightMode + 1);
                 break;
             }
-            case GLFW_RELEASE:
+            /*case GLFW_RELEASE:
             {
                 localState->speed = localState->speed / 2;
+                localState->freeFlightMode = false;
                 break;
-            }
+            }*/
         }
     if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
@@ -95,15 +98,144 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     }
 }
 
+bool testHitbox(glm::vec3 center, glm::vec3 dimensions) {
+
+    int bounds[6];
+    for (int i = 0; i < 3; i++) {
+        int low = std::floor(center[i] - (dimensions[i] / 2.0f));
+        int high = std::floor(center[i] + (dimensions[i] / 2.0f));
+        bounds[i * 2] = low;
+        bounds[i * 2 + 1] = high;
+    }
+
+    for (int x = bounds[0]; x <= bounds[1]; x++) {
+        for (int y = bounds[2]; y <= bounds[3]; y++) {
+            for (int z = bounds[4]; z <= bounds[5]; z++) {
+                auto block = localState->chunks->get(x, y, z);
+                if (block != nullptr)
+                {
+                    if (block->id != 0) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+glm::vec3 goodHitboxCenter(glm::vec3 currentCenter, glm::vec3 dimensions, glm::vec3 motionVec, glm::vec3 lookDirection) {
+
+    glm::vec3 result = currentCenter;
+
+    bool flipHorizPrecedence = false;
+    if (abs(lookDirection.y) > abs(lookDirection.x)) {
+        flipHorizPrecedence = true;
+    }
+
+    for (int index = 0; index < 3; index++) {
+        int i = index;
+        if (flipHorizPrecedence && i == 0) {
+            i = 1;
+        }
+        else if (flipHorizPrecedence && i == 1) {
+            i = 0;
+        }
+        if (motionVec[i] != 0.0f) {
+            glm::vec3 singleAxisMotion = glm::vec3();
+            singleAxisMotion[i] = motionVec[i];
+            if (testHitbox(result + singleAxisMotion, dimensions)) {
+                result[i] += motionVec[i];
+            }
+            else if (abs(motionVec[i]) < 1.0f) {
+                //block below
+                if (motionVec[i] < 0.0f) {
+                    int bound = std::floor(result[i] + motionVec[i] - (dimensions[i] / 2.0f));
+                    result[i] = (bound + 1) + dimensions[i] / 2.0f;
+                }
+                    //block above
+                else {
+                    int bound = std::floor(result[i] + motionVec[i] + (dimensions[i] / 2.0f));
+                    result[i] = (bound) - dimensions[i] / 2.0f - 0.001f;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+const glm::vec3 playerDimensions = glm::vec3(1.00f, 2.0f, 1.00f);
+const float playerHeadOffset = 1.0f;
+
 void updateInputs(GLFWwindow *window)
 {
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) localState->camera->pos += localState->camera->front * localState->speed * localState->deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) localState->camera->pos -= localState->camera->right * localState->speed * localState->deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) localState->camera->pos -= localState->camera->front * localState->speed * localState->deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) localState->camera->pos += localState->camera->right * localState->speed * localState->deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) localState->camera->pos += localState->camera->up * localState->speed * localState->deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) localState->camera->pos -= localState->camera->up * localState->speed * localState->deltaTime;
+    glm::vec3 moveVector(0.0f);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    {
+        moveVector.x -= glm::sin(localState->camera->rotY) * localState->speed * localState->deltaTime;
+        moveVector.z -= glm::cos(localState->camera->rotY) * localState->speed * localState->deltaTime;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        moveVector -= localState->camera->right * localState->speed * localState->deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    {
+        moveVector.x += glm::sin(localState->camera->rotY) * localState->speed * localState->deltaTime;
+        moveVector.z += glm::cos(localState->camera->rotY) * localState->speed * localState->deltaTime;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        moveVector += localState->camera->right * localState->speed * localState->deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS && localState->freeFlightMode)
+        moveVector += localState->camera->up * localState->speed * localState->deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS && localState->freeFlightMode)
+        moveVector -= localState->camera->up * localState->speed * localState->deltaTime;
+    //LOG(localState->camera->front.x << " " << localState->camera->front.y << " " << localState->camera->front.z)
+    if (!localState->freeFlightMode)
+    {
+        glm::vec3 dend;
+        glm::vec3 dnorm;
+        glm::vec3 diend;
+        Block *dblock = localState->chunks->rayCast(localState->camera->pos, glm::vec3(0, -1, 0), 2.0f, dend, dnorm, diend);
+
+        auto block = localState->chunks->get(std::floor(localState->camera->pos.x), localState->camera->pos.y - 2, std::floor(localState->camera->pos.z));
+
+        //bool collision = collisionCheck();
+        //LOG(collision)
+
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !localState->inAir)
+        {
+            localState->upSpeed = 19.0;
+            localState->inAir = true;
+        }
+
+        moveVector.y += localState->upSpeed * localState->deltaTime;
+
+        if (dblock != nullptr)
+        {
+            localState->inAir = false;
+        }
+        else if (dend.y < localState->camera->pos.y - 2)
+        {
+            moveVector.y -= localState->speed * localState->deltaTime;
+            localState->inAir = true;
+        }
+
+        if (localState->inAir)
+            localState->upSpeed -= 45 * localState->deltaTime;
+        else
+            localState->upSpeed = 0;
+
+        glm::vec3 hitCenter = glm::vec3(localState->camera->pos.x, localState->camera->pos.y - playerHeadOffset, localState->camera->pos.z);
+        glm::vec3 hitDim = playerDimensions;
+        glm::vec3 goodCenter = goodHitboxCenter(hitCenter, hitDim, moveVector, localState->camera->front - localState->camera->pos);
+        goodCenter.y += playerHeadOffset;
+        moveVector = goodCenter - localState->camera->pos;
+    }
+    localState->camera->pos += moveVector;
 }
+
 
 void cursorCallback(GLFWwindow *window, double xpos, double ypos)
 {

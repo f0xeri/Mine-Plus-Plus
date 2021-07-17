@@ -22,3 +22,12 @@
 **/.idea/
 /stb_image.h
 /lib/
+/cmake-build-release/bin/
+/cmake-build-release/glew/
+/cmake-build-release/glfw/
+/cmake-build-release/imgui/
+/cmake-build-release/lib/
+/cmake-build-release/imgui.ini
+/cmake-build-release/map.world
+/cmake-build-release/mine++.zip
+/cmake-build-release/Mine++Resources.zip

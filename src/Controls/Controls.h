@@ -7,6 +7,14 @@
 
 #include "../State.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/vector_angle.hpp>
+#include <glm/gtx/projection.hpp>
+#include <glm/gtx/perpendicular.hpp>
+
 class Controls {
 public:
     Controls(State *s);

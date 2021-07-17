@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <sstream>
+#include <thread>
 #include "Window.hpp"
 #include "../Logger.hpp"
 #include "../Model/Mesh.hpp"
@@ -100,7 +101,7 @@ void showFPS(GLFWwindow *pWindow, int chunksOnSceneCounter)
     {
         double fps = double(state->nbFrames) / delta;
         std::stringstream ss;
-        ss << "Mine++ " << " [" << fps << " FPS] [" << chunksOnSceneCounter << " CHUNKS]";
+        ss << "Mine++ " << " [" << fps << " FPS] [" << round((state->deltaTime * 1000) * 100) / 100 << " MS] [" << chunksOnSceneCounter << " CHUNKS]";
         glfwSetWindowTitle(pWindow, ss.str().c_str());
         state->nbFrames = 0;
         state->lastTime = currentTime;
@@ -110,9 +111,9 @@ void showFPS(GLFWwindow *pWindow, int chunksOnSceneCounter)
 void generateNewChunksIfNeeded(int currentX, int currentZ)
 {
     int newChunksCount = 0;
-    for (int x_ = currentX - 12; x_ <= currentX + 12; x_++)
+    for (int x_ = currentX - state->viewDistance; x_ <= currentX + state->viewDistance; x_++)
     {
-        for (int z_ = currentZ - 12; z_ <= currentZ + 12; z_++)
+        for (int z_ = currentZ - state->viewDistance; z_ <= currentZ + state->viewDistance; z_++)
         {
             if (state->chunks->chunksDict.find({x_, z_}) == state->chunks->chunksDict.end())
             {
@@ -223,7 +224,6 @@ void Window::startLoop()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         Chunk *chunk;
-        Mesh *mesh;
         int cx = state->camera->pos.x / CHUNK_SIZE;
         int cz = state->camera->pos.z / CHUNK_SIZE;
 
@@ -233,18 +233,13 @@ void Window::startLoop()
 
         chunksOnSceneCounter = 0;
 
-        int i = 0;
-        int count = 0;
         for (auto &ichunk : state->chunks->chunksDict)
         {
             chunk = ichunk.second;
             if (!chunk->modified)
                 continue;
             chunk->modified = false;
-            count++;
-
             chunk->mesh = chunkRenderer.createMesh(chunk);
-            i++;
         }
 
         auto mainCamPoints = state->camera->getFrustrumPoints(25);
@@ -280,6 +275,7 @@ void Window::startLoop()
         shader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
         glUniform3f(glGetUniformLocation(shader.mProgram, "viewPos"), state->camera->pos.x, state->camera->pos.y, state->camera->pos.z);
         glUniform3f(glGetUniformLocation(shader.mProgram, "lightDir"), state->lightDir.x, state->lightDir.y, state->lightDir.z);
+        glUniform1i(glGetUniformLocation(shader.mProgram, "useShadows"), state->useShadows);
         shader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
         glActiveTexture(GL_TEXTURE0);
         texture_atlas->bind();

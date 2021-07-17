@@ -11,7 +11,13 @@
 struct State
 {
     float deltaTime;
-    float speed = 12.f;
+    float speed = 8.f;
+
+    float upSpeed;
+    bool inAir;
+
+    glm::vec3 velocity;
+
     GLFWwindow *window;
     Camera *camera;
     ChunkManager *chunks;
@@ -31,6 +37,9 @@ struct State
     bool showDebug = false;
     bool showInventory = false;
     bool showPolygons = false;
+    bool physicsEnabled = true;
+    bool freeFlightMode = false;
+    bool useShadows = true;
     float camX = 0.0f;
     float camY = 0.0f;
     bool vsync = false;

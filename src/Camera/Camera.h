@@ -22,6 +22,10 @@ public:
     glm::vec3 up;
     glm::vec3 right;
 
+    float rotX;
+    float rotY;
+    float rotZ;
+
     Camera(glm::vec3 pos, float FOV);
     ~Camera();
 

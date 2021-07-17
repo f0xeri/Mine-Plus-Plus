@@ -2,6 +2,7 @@
 // Created by Yaroslav on 01.08.2020.
 //
 
+#include <cmath>
 #include <fstream>
 #include "ChunkManager.hpp"
 #include "../Logger.hpp"
@@ -105,9 +106,9 @@ Block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec
     float dz = dir.z;
 
     float t = 0.0f;
-    int ix = floor(px);
-    int iy = floor(py);
-    int iz = floor(pz);
+    int ix = std::floor(px);
+    int iy = std::floor(py);
+    int iz = std::floor(pz);
 
     float stepx = (dx > 0.0f) ? 1.0f : -1.0f;
     float stepy = (dy > 0.0f) ? 1.0f : -1.0f;
@@ -237,3 +238,4 @@ void ChunkManager::loadMap()
     }
     LOG("[INFO] " << chunkCount << " chunks loaded from disk in " << glfwGetTime() - time << " seconds.");
 }
+
