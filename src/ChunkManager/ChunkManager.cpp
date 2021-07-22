@@ -69,8 +69,11 @@ Block *ChunkManager::get(int x, int y, int z)
     //return &chunk->blocksDict[{lx, ly, lz}];
 }
 
-void ChunkManager::set(int x, int y, int z, int id)
+ChunkChangesSave ChunkManager::set(int x, int y, int z, int id)
 {
+    ChunkChangesSave res{};
+    res.newBlockId = -1;
+
     int cx = x / CHUNK_SIZE;
     int cy = y / CHUNK_Y;
     int cz = z / CHUNK_SIZE;
@@ -78,7 +81,7 @@ void ChunkManager::set(int x, int y, int z, int id)
     if (y < 0) cy--;
     if (z < 0 && z % CHUNK_SIZE != 0) cz--;
     if (chunksDict.count({cx, cz}) == 0)
-        return;
+        return res;
     Chunk* chunk = chunksDict[{cx, cz}];
     int lx = x - cx * CHUNK_SIZE;
     int ly = y - cy * CHUNK_Y;
@@ -94,6 +97,11 @@ void ChunkManager::set(int x, int y, int z, int id)
     if (lx == CHUNK_SIZE - 1 && (chunk = getChunk(cx+1, cy, cz))) chunk->modified = true;
     if (ly == CHUNK_Y - 1 && (chunk = getChunk(cx, cy+1, cz))) chunk->modified = true;
     if (lz == CHUNK_SIZE - 1 && (chunk = getChunk(cx, cy, cz+1))) chunk->modified = true;
+
+    res.cx = cx; res.cy = cy; res.cz = cz;
+    res.blockNumber = (ly * CHUNK_SIZE + lz) * CHUNK_SIZE + lx;
+    res.newBlockId = id;
+    return res;
 }
 
 Block* ChunkManager::rayCast(glm::vec3 a, glm::vec3 dir, float maxDist, glm::vec3& end, glm::vec3& norm, glm::vec3& iend) {

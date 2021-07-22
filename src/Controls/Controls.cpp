@@ -6,6 +6,7 @@
 #include <iostream>
 #include "Controls.h"
 #include "../Window/Window.hpp"
+#include "../GUI/GUIRenderer.hpp"
 #include "../Logger.hpp"
 
 State *localState;
@@ -71,6 +72,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     {
         localState->showDebug = !localState->showDebug;
         localState->showInventory = !localState->showInventory;
+    }
+    if (key == GLFW_KEY_V && action == GLFW_PRESS)
+    {
+        localState->thirdPersonView = !localState->thirdPersonView;
     }
     if (key == GLFW_KEY_1 && action == GLFW_PRESS)
     {
@@ -166,10 +171,7 @@ glm::vec3 goodHitboxCenter(glm::vec3 currentCenter, glm::vec3 dimensions, glm::v
     return result;
 }
 
-const glm::vec3 playerDimensions = glm::vec3(1.00f, 2.0f, 1.00f);
-const float playerHeadOffset = 1.0f;
-
-void updateInputs(GLFWwindow *window)
+void updateInputs(GLFWwindow *window, Player *player)
 {
     glm::vec3 moveVector(0.0f);
 
@@ -191,18 +193,14 @@ void updateInputs(GLFWwindow *window)
         moveVector += localState->camera->up * localState->speed * localState->deltaTime;
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS && localState->freeFlightMode)
         moveVector -= localState->camera->up * localState->speed * localState->deltaTime;
-    //LOG(localState->camera->front.x << " " << localState->camera->front.y << " " << localState->camera->front.z)
+
     if (!localState->freeFlightMode)
     {
         glm::vec3 dend;
         glm::vec3 dnorm;
         glm::vec3 diend;
-        Block *dblock = localState->chunks->rayCast(localState->camera->pos, glm::vec3(0, -1, 0), 2.0f, dend, dnorm, diend);
+        Block *dblock = localState->chunks->rayCast(player->pos, glm::vec3(0, -1, 0), 2.0f, dend, dnorm, diend);
 
-        auto block = localState->chunks->get(std::floor(localState->camera->pos.x), localState->camera->pos.y - 2, std::floor(localState->camera->pos.z));
-
-        //bool collision = collisionCheck();
-        //LOG(collision)
 
         if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !localState->inAir)
         {
@@ -227,13 +225,14 @@ void updateInputs(GLFWwindow *window)
         else
             localState->upSpeed = 0;
 
-        glm::vec3 hitCenter = glm::vec3(localState->camera->pos.x, localState->camera->pos.y - playerHeadOffset, localState->camera->pos.z);
-        glm::vec3 hitDim = playerDimensions;
-        glm::vec3 goodCenter = goodHitboxCenter(hitCenter, hitDim, moveVector, localState->camera->front - localState->camera->pos);
-        goodCenter.y += playerHeadOffset;
-        moveVector = goodCenter - localState->camera->pos;
+        glm::vec3 hitCenter = glm::vec3(player->pos.x, player->pos.y - player->headOffset, player->pos.z);
+        glm::vec3 hitDim{player->sizeX, player->sizeY, player->sizeZ};
+        glm::vec3 goodCenter = goodHitboxCenter(hitCenter, hitDim, moveVector, localState->camera->front - player->pos);
+        goodCenter.y += player->headOffset;
+        moveVector = goodCenter - player->pos;
     }
-    localState->camera->pos += moveVector;
+    //localState->camera->pos += moveVector;
+    player->pos += moveVector;
 }
 
 
@@ -281,13 +280,39 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 
     if (block != nullptr)
     {
+        MineNet::message<MineMsgTypes> modifyMsg;
+        modifyMsg.header.id = MineMsgTypes::WorldChunkModified;
+        ChunkModifyData modifyData{};
+
+        modifyData.iendx = int(iend.x); modifyData.iendy = int(iend.y); modifyData.iendz = int(iend.z);
+        modifyData.normx = 0; modifyData.normy = 0; modifyData.normz = 0;
+
+        MineNet::message<MineMsgTypes> saveMsg;
+        saveMsg.header.id = MineMsgTypes::ServerSaveWorldChange;
+        ChunkChangesSave saveData{};
+
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
         {
-            localState->chunks->set(int(iend.x), int(iend.y), int(iend.z), 0);
+            saveData = localState->chunks->set(int(iend.x), int(iend.y), int(iend.z), 0);
+
+            modifyData.blockId = 0;
+            modifyMsg << modifyData;
+            localState->netClient->send(modifyMsg);
+
+            saveMsg << saveData;
+            localState->netClient->send(saveMsg);
         }
         if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
         {
-            localState->chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), localState->currentBlockId);
+            saveData = localState->chunks->set(int(iend.x) + int(norm.x), int(iend.y) + int(norm.y), int(iend.z) + int(norm.z), localState->currentBlockId);
+
+            modifyData.normx = int(norm.x); modifyData.normy = int(norm.y); modifyData.normz = int(norm.z);
+            modifyData.blockId = localState->currentBlockId;
+            modifyMsg << modifyData;
+            localState->netClient->send(modifyMsg);
+
+            saveMsg << saveData;
+            localState->netClient->send(saveMsg);
         }
     }
 }

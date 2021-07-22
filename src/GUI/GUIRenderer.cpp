@@ -29,3 +29,20 @@ void GUIRenderer::render(State *state)
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     ImGui::EndFrame();
 }
+
+void GUIRenderer::renderDebugString(const std::string &string, float x, float y) {
+    {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::SetNextWindowPos({x, y});
+        ImGui::Begin("");
+        ImGui::Text("%s", string.c_str());
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGui::EndFrame();
+    }
+}

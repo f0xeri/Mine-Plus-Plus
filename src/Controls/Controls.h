@@ -6,6 +6,7 @@
 #define MINE_CONTROLS_H
 
 #include "../State.hpp"
+#include "../Player/Player.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -22,7 +23,7 @@ public:
 
 void toggleCursor(GLFWwindow *window);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode);
-void updateInputs(GLFWwindow *window);
+void updateInputs(GLFWwindow *window, Player *player);
 void cursorCallback(GLFWwindow *window, double xpos, double ypos);
 void resizeCallback(GLFWwindow *window, int width, int height);
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);

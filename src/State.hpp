@@ -7,6 +7,7 @@
 
 #include "Camera/Camera.h"
 #include "ChunkManager/ChunkManager.hpp"
+#include "MineNetClient/MineNetClient.hpp"
 
 struct State
 {
@@ -21,6 +22,7 @@ struct State
     GLFWwindow *window;
     Camera *camera;
     ChunkManager *chunks;
+    MineNetClient *netClient;
 
     float deltaX = 0.0f;
     float deltaY = 0.0f;
@@ -40,6 +42,8 @@ struct State
     bool physicsEnabled = true;
     bool freeFlightMode = false;
     bool useShadows = true;
+    bool thirdPersonView = false;
+    bool offlineSessionStarted = false;
     float camX = 0.0f;
     float camY = 0.0f;
     bool vsync = false;

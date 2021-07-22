@@ -7,6 +7,7 @@
 #include <glm/ext.hpp>
 #include <sstream>
 #include <thread>
+#include <fstream>
 #include "Window.hpp"
 #include "../Logger.hpp"
 #include "../Model/Mesh.hpp"
@@ -22,6 +23,11 @@
 #include "../../lib/imgui/imgui_impl_opengl3.h"
 #include "../GUI/GUIRenderer.hpp"
 #include "../Shadows/ShadowMap.hpp"
+#include "../Player/Player.hpp"
+#include "../PlayerRenderer/PlayerRenderer.hpp"
+#include "../MineNetClient/MineNetClient.hpp"
+#include "../Player/LocalPlayer.hpp"
+#include "../Player/NetPlayer.hpp"
 
 #define ASPECT_RATIO float(Window::_width) / float(Window::_height)
 
@@ -47,7 +53,6 @@ Window::Window(const char *title, int width, int height)
 
     glEnable(GL_POLYGON_SMOOTH);
     glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-    //glEnable(GL_MULTISAMPLE);
     mainWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (mainWindow)
     {
@@ -201,6 +206,9 @@ void Window::startLoop()
     Shader debugQuad("vertDebugQuad", "fragDebugQuad");
     debugQuad.link();
 
+    Shader playerShader("playerVert", "playerFrag");
+    playerShader.link();
+
     double lastTime = glfwGetTime();
 
     int chunksOnSceneCounter = 0;
@@ -211,14 +219,144 @@ void Window::startLoop()
     state->viewDistance = 6;
 
     ShadowMap shadowMap(state, 2048, 2048, 25);
+    LocalPlayer player(glm::vec3(0, 50, 0));
+    //NetPlayer netPlayer(glm::vec3(2, 6, 2), state);
+    //
+    //PlayerRenderer netPlayerRenderer(&netPlayer);
+
+    std::ifstream cfgFile("settings.cfg");
+    std::string host = "127.0.0.1";
+    if (cfgFile.is_open())
+        std::getline(cfgFile, host);
+
+    state->netClient = new MineNetClient();
+    state->netClient->connect(host, 60000);
+
+    std::unordered_map<uint32_t, Player*> players;
+    std::unordered_map<uint32_t, PlayerRenderer*> playerRenderers;
 
     while (!glfwWindowShouldClose(mainWindow))
     {
+        if (state->netClient->isConnected())
+        {
+            while (!state->netClient->incoming().empty())
+            {
+                auto msg = state->netClient->incoming().pop_front().msg;
+                switch (msg.header.id)
+                {
+                    case MineMsgTypes::ClientAccepted:
+                    {
+                        LOG("[SERVER] Connected to server.");
+                        MineNet::message<MineMsgTypes> msg;
+                        msg.header.id = MineMsgTypes::ClientRegisterWithServer;
+                        playerNetData data{};
+                        data.posX = player.pos.x;
+                        data.posY = player.pos.y;
+                        data.posZ = player.pos.z;
+
+                        msg << data;
+                        state->netClient->send(msg);
+                        break;
+                    }
+
+                    case MineMsgTypes::ClientAssignID:
+                    {
+                        msg >> player.id;
+                        state->netClient->playerID = player.id;
+                        LOG("[SERVER] Your ID is " << player.id << ".");
+                        break;
+                    }
+
+                    case MineMsgTypes::WorldAddPlayer:
+                    {
+                        playerNetData data{};
+                        msg >> data;
+                        //LOG(data.id)
+                        if (data.id == state->netClient->playerID)
+                        {
+                            players.insert_or_assign(data.id, new LocalPlayer(glm::vec3(data.posX, data.posY, data.posZ)));
+                            //players[data.id] = new LocalPlayer(glm::vec3(data.posX, data.posY, data.posZ));
+                            state->netClient->waitingForConnection = false;
+                        }
+                        else
+                        {
+                            players.insert_or_assign(data.id, new NetPlayer(glm::vec3(data.posX, data.posY, data.posZ)));
+                        }
+                        playerRenderers[data.id] = new PlayerRenderer(players[data.id]);
+                        break;
+                    }
+
+                    case MineMsgTypes::WorldRemovePlayer:
+                    {
+                        uint32_t removalID = 0;
+                        msg >> removalID;
+                        players.erase(removalID);
+                        playerRenderers.erase(removalID);
+                        break;
+                    }
+
+                    case MineMsgTypes::WorldUpdatePlayer:
+                    {
+                        playerNetData data{};
+                        msg >> data;
+                        if (players.find(data.id) != players.end())
+                            players[data.id]->pos = {data.posX, data.posY, data.posZ};
+                        break;
+                    }
+
+                    case MineMsgTypes::WorldChunkModified:
+                    {
+                        ChunkModifyData data{};
+                        msg >> data;
+                        state->chunks->set(data.iendx + data.normx, data.iendy + data.normy, data.iendz + data.normz, data.blockId);
+                        break;
+                    }
+
+                    case MineMsgTypes::WorldChanges:
+                    {
+                        ChunkChangesSave mapChangesData{};
+                        msg >> mapChangesData;
+                        if (state->chunks->chunksDict.count({mapChangesData.cx, mapChangesData.cz}) == 0)
+                        {
+                            state->chunks->add(mapChangesData.cx, mapChangesData.cy, mapChangesData.cz);
+                        }
+                        state->chunks->chunksDict.at({mapChangesData.cx, mapChangesData.cz})->blocks[mapChangesData.blockNumber] = mapChangesData.newBlockId;
+                        state->chunks->chunksDict.at({mapChangesData.cx, mapChangesData.cz})->modified = true;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (!state->offlineSessionStarted)
+            {
+                state->netClient->waitingForConnection = false;
+                players.insert_or_assign(0, new LocalPlayer(glm::vec3(0, 50, 0)));
+                playerRenderers[0] = new PlayerRenderer(players[0]);
+                state->offlineSessionStarted = true;
+            }
+        }
+
+        if (state->netClient->waitingForConnection)
+        {
+            glClearColor(0.5, 0.8, 1, 1);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glfwSwapBuffers(mainWindow);
+            glfwPollEvents();
+            continue;
+        }
+
         double currentTime = glfwGetTime();
         state->deltaTime = glfwGetTime() - lastTime;
         lastTime = currentTime;
 
-        updateInputs(mainWindow);
+        updateInputs(mainWindow, players[state->netClient->playerID]);
+        //LOG(players.size());
+        for (auto &p : players)
+        {
+            p.second->update(state->deltaTime, state);
+        }
 
         glClearColor(0.5, 0.8, 1, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -284,6 +422,24 @@ void Window::startLoop()
         glCullFace(GL_BACK);
         chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, shader, chunksOnSceneCounter);
 
+        for (auto &playerRenderer : playerRenderers)
+        {
+            glm::vec3 translate = players[playerRenderer.first]->pos - players[playerRenderer.first]->spawnPos;
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, translate);
+            model = glm::rotate(model, players[playerRenderer.first]->rotY, glm::vec3(0, 1, 0));
+            //std::cout << players[playerRenderer.first]->id << " " << playerRenderer.first << " " << players[playerRenderer.first]->rotY << "\n";
+            playerShader.use();
+            playerShader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
+            playerShader.uniformMatrix(model, "model");
+            if (playerRenderer.first != state->netClient->playerID)
+                playerRenderer.second->render();
+            else
+                if (state->thirdPersonView)
+                    playerRenderer.second->render();
+
+        }
+        //LOG("\n")
         // crosshair render
         crosshairShader.use();
         crosshairShader.uniformMatrix(mat4(1.0f), "model");
@@ -296,6 +452,18 @@ void Window::startLoop()
         //renderQuad();
 
         gui.render(state);
+
+        playerNetData data{};
+        MineNet::message<MineMsgTypes> msg;
+        msg.header.id = MineMsgTypes::WorldUpdatePlayer;
+        //LOG(players[state->netClient->playerID]->pos.y)
+        data.posX = players[state->netClient->playerID]->pos.x;
+        data.posY = players[state->netClient->playerID]->pos.y;
+        data.posZ = players[state->netClient->playerID]->pos.z;
+        data.rotY = players[state->netClient->playerID]->rotY;
+        data.id = state->netClient->playerID;
+        msg << data;
+        state->netClient->send(msg);
 
         glfwSwapBuffers(mainWindow);
         glfwPollEvents();
