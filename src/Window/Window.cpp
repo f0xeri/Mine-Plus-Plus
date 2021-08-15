@@ -196,6 +196,54 @@ void Window::startLoop()
 
     crosshairMesh.addIndices({0, 1, 2, 3});
 
+    unsigned int gBuffer;
+    glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+    unsigned int gPosition, gNormal, gAlbedoSpec;
+
+    // буфер позиций
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, Window::_width, Window::_height, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+
+    // буфер нормалей
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, Window::_width, Window::_height, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+
+    // буфер для цвета + коэффициента зеркального отражения
+    glGenTextures(1, &gAlbedoSpec);
+    glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Window::_width, Window::_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+
+    // укажем OpenGL, какие буферы мы будем использовать при рендеринге
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, Window::_width, Window::_height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    Shader gbufferShader("gbufferVert", "gbufferFrag");
+    gbufferShader.link();
+
+    Shader defferedLightningPassShader("defferedLightingVert", "defferedLightingFrag");
+    defferedLightningPassShader.link();
+
     Shader crosshairShader("crosshairVert", "crosshairFrag");
     crosshairShader.bindAttribute(0, "position");
     crosshairShader.link();
@@ -380,6 +428,19 @@ void Window::startLoop()
             chunk->mesh = chunkRenderer.createMesh(chunk);
         }
 
+        // GEOMETRY PASS
+        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        gbufferShader.use();
+        gbufferShader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
+        glActiveTexture(GL_TEXTURE0);
+        texture_atlas->bind();
+        glCullFace(GL_BACK);
+        chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, gbufferShader, chunksOnSceneCounter);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // SHADOW MAP PASS
         auto mainCamPoints = state->camera->getFrustrumPoints(25);
         glm::mat4 lightView = shadowMap.calculateLightViewMatrix(mainCamPoints);
         glm::mat4 lightProjection = shadowMap.calculateLightProjectionMatrix(mainCamPoints, lightView);
@@ -396,31 +457,57 @@ void Window::startLoop()
         texture_atlas->bind();
         glCullFace(GL_FRONT);
         chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, simpleDepthShader, chunksOnSceneCounter);
-
         chunksOnSceneCounter = 0;
-
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // reset viewport
-        glViewport(0, 0, Window::_width, Window::_height);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         if (state->showPolygons) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+        // LIGHTING PASS
+        glViewport(0, 0, Window::_width, Window::_height);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        defferedLightningPassShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+        glActiveTexture(GL_TEXTURE3);
+        shadowMap.bind();
+
+        glUniform3f(glGetUniformLocation(defferedLightningPassShader.mProgram, "lightDir"), state->lightDir.x, state->lightDir.y, state->lightDir.z);
+        glUniform1i(glGetUniformLocation(defferedLightningPassShader.mProgram, "useShadows"), state->useShadows);
+        defferedLightningPassShader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
+        defferedLightningPassShader.uniformMatrix(lightProjection, "lightProjection");
+        //glCullFace(GL_BACK);
+        //chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, defferedLightningPassShader, chunksOnSceneCounter);
+        renderQuad();
+
         // main render
-        shader.use();
+        /*shader.use();
         shader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
         glUniform3f(glGetUniformLocation(shader.mProgram, "viewPos"), state->camera->pos.x, state->camera->pos.y, state->camera->pos.z);
         glUniform3f(glGetUniformLocation(shader.mProgram, "lightDir"), state->lightDir.x, state->lightDir.y, state->lightDir.z);
         glUniform1i(glGetUniformLocation(shader.mProgram, "useShadows"), state->useShadows);
         shader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
+        shader.uniformMatrix(lightProjection, "lightProjection");
         glActiveTexture(GL_TEXTURE0);
         texture_atlas->bind();
         glActiveTexture(GL_TEXTURE1);
         shadowMap.bind();
         glCullFace(GL_BACK);
         chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, shader, chunksOnSceneCounter);
+        */
+        //LOG("\n")
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
+        // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
+        // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the
+        // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
+        glBlitFramebuffer(0, 0, Window::_width, Window::_height, 0, 0, Window::_width, Window::_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         for (auto &playerRenderer : playerRenderers)
         {
@@ -435,21 +522,24 @@ void Window::startLoop()
             if (playerRenderer.first != state->netClient->playerID)
                 playerRenderer.second->render();
             else
-                if (state->thirdPersonView)
-                    playerRenderer.second->render();
+            if (state->thirdPersonView)
+                playerRenderer.second->render();
 
         }
-        //LOG("\n")
+
         // crosshair render
         crosshairShader.use();
         crosshairShader.uniformMatrix(mat4(1.0f), "model");
         crosshairShader.uniformMatrix(orthoMatrix, "projView");
         crosshairMesh.draw(GL_LINES);
 
-        debugQuad.use();
-        glActiveTexture(GL_TEXTURE0);
-        shadowMap.bind();
-        //renderQuad();
+
+        /*debugQuad.use();
+        debugQuad.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
+        model = glm::mat4(1.0f);
+        debugQuad.uniformMatrix(model, "model");
+        //shadowMap.bind();
+        renderQuad();*/
 
         gui.render(state);
 

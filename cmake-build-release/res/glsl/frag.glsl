@@ -6,6 +6,7 @@ in vec3 fragPos;
 in vec3 _normal;
 in vec2 pass_texCoord;
 in vec4 _fragPosLightSpace;
+in mat4 _lightProjection;
 
 layout(binding = 0) uniform sampler2D u_texture;
 layout(binding = 1) uniform sampler2D shadowMap;
@@ -159,6 +160,45 @@ float ShadowCalculationSoft()
 
     return sum;
 }
+// MomoDev
+float isInShadow(vec2 projectedShadowUV, float depth, sampler2D shadowMap)
+{
+    const float bias = 0.001;
+    float compareDepth = texture(shadowMap, projectedShadowUV).r;
+    return depth < compareDepth + bias ? 1.0 : 0.0;
+}
+
+float computeShadowPCF(sampler2D shadowMap, int kernelSize, float kernelOfffset)
+{
+    vec3 projectedPosition = _fragPosLightSpace.xyz / _fragPosLightSpace.w;
+    //projectedPosition.xy = vec2(0.5, -0.5) * projectedPosition.xy + 0.5;
+    projectedPosition = projectedPosition * 0.5 + 0.5;
+
+    if (projectedPosition.x < 0.0 || projectedPosition.x > 1.0 ||
+    projectedPosition.y < 0.0 || projectedPosition.y > 1.0 ||
+    projectedPosition.z < 0.0 || projectedPosition.z > 1.0) return 1.0;
+
+    vec2 invShadowMapSize = vec2(kernelOfffset) / textureSize(shadowMap, 0);
+
+    float accum = 0.0;
+    int totalSamples = (2 * kernelSize + 1) * (2 * kernelSize + 1);
+    for (int x = -kernelSize; x <= kernelSize; x++)
+    {
+        for (int y = -kernelSize; y <= kernelSize; y++)
+        {
+            accum += isInShadow(projectedPosition.xy + vec2(x, y) * invShadowMapSize, projectedPosition.z, shadowMap);
+        }
+    }
+
+    return accum / float(totalSamples);
+}
+
+float computeShadow(sampler2D shadowMap)
+{
+    float initialTest = computeShadowPCF(shadowMap, 1, 5.0);
+    if (initialTest == 0.0 || initialTest == 1.0) return initialTest;
+    return computeShadowPCF(shadowMap, 5, 1.0);
+}
 
 void main()
 {
@@ -170,8 +210,11 @@ void main()
     float diff = max(dot(norm, lightDir), 0.0f);
     vec3 diffuse = diff * lightColor * 0.8f;
 
+
     float shadow = 1.0;
     if (useShadows) shadow = ShadowCalculationSoft();
+    //if (useShadows) shadow = ShadowCalculationHard();
+    //if (useShadows) shadow = computeShadow(shadowMap);
 
     color = (vec4(ambientLighting, 1) + vec4(diffuse, 1) * shadow) * texture(u_texture, pass_texCoord);
 }
