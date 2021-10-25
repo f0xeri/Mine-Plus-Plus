@@ -52,7 +52,3 @@ void Texture::loadTexture()
     glBindTexture(GL_TEXTURE_2D, 0);
     LOG("[INFO] Texture " + std::string(name) + " loaded.");
 }
-
-
-
-

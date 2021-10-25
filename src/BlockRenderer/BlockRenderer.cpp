@@ -39,9 +39,8 @@ Mesh *BlockRenderer::createMesh(Chunk *chunk)
             {
                 Block blk = chunk->blocks[(y * CHUNK_SIZE + z) * CHUNK_SIZE + x];
                 unsigned int id = blk.id;
-
                 float pixelSize = 1.0f / 512.0f;
-                float tOffset = (1.0f) / 16.0f;
+                float tOffset = 1.0f / 16.0f;
                 float u = (id % 16) * tOffset;
                 float v = (id / 16) * tOffset;
                 float u1 = u + pixelSize;
