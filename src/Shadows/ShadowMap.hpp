@@ -23,10 +23,9 @@ public:
     unsigned int width, height;
     float shadowDistance;
 
-    ShadowMap(State *state, int width, int height, float shadowDistance);
-    glm::mat4 calculateLightViewMatrix(std::vector<glm::vec3> &frustrumPoints);
-    glm::mat4 calculateLightProjectionMatrix(std::vector<glm::vec3> &frustrumPoints, glm::mat4 lightView);
-    glm::mat4 getLightSpaceMatrix();
+    ShadowMap(State *state, int width, int height, float shadowDistance, int layersNumber);
+    glm::mat4 calculateLightViewMatrix(std::vector<glm::vec4> &frustrumPoints);
+    glm::mat4 calculateLightProjectionMatrix(std::vector<glm::vec4> &frustrumPoints, glm::mat4 lightView);
     void bindFBO();
     void bind();
     unsigned int getTexture();

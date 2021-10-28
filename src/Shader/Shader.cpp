@@ -10,11 +10,12 @@
 #include <fstream>
 #include <streambuf>
 
-Shader::Shader(const std::string &vert, const std::string &frag)
+Shader::Shader(const std::string &vert, const std::string &frag, const std::string &geometry)
 {
     mProgram = glCreateProgram();
     mVertexShader = loadShader("res/glsl/" + vert + ".glsl", GL_VERTEX_SHADER);
     mFragmentShader = loadShader("res/glsl/" + frag + ".glsl", GL_FRAGMENT_SHADER);
+    if (!geometry.empty()) mGeometryShader = loadShader("res/glsl/" + geometry + ".glsl", GL_GEOMETRY_SHADER);
 }
 
 Shader::~Shader()
@@ -58,6 +59,8 @@ void Shader::link()
 {
     glAttachShader(mProgram, mVertexShader);
     glAttachShader(mProgram, mFragmentShader);
+    if(mGeometryShader != 0)
+        glAttachShader(mProgram, mGeometryShader);
     glLinkProgram(mProgram);
 }
 
@@ -72,6 +75,8 @@ void Shader::use()
     glDetachShader(mProgram, mFragmentShader);
     glDeleteShader(mVertexShader);
     glDeleteShader(mFragmentShader);
+    if(mGeometryShader != 0)
+        glDeleteShader(mGeometryShader);
     glUseProgram(mProgram);
 }
 

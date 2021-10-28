@@ -2,10 +2,12 @@
 layout (location = 0) out vec3 gPosition;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gAlbedoSpec;
+layout (location = 3) out vec3 gDepth;
 
 in vec3 fragPos;
 in vec2 pass_texCoord;
 in vec3 _normal;
+in vec3 _depth;
 
 uniform sampler2D u_texture;
 
@@ -17,4 +19,5 @@ void main()
     gNormal = normalize(_normal);
     // and the diffuse per-fragment color
     gAlbedoSpec.rgb = texture(u_texture, pass_texCoord).rgb;
+    gDepth = _depth;
 }

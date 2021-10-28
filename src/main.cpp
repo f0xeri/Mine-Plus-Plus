@@ -1,7 +1,4 @@
-#include <iostream>
 #include <GLFW/glfw3.h>
-#include <thread>
-#include "Logger.hpp"
 #include "Window/Window.hpp"
 
 

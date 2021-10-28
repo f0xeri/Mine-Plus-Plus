@@ -33,7 +33,8 @@ struct State
     glm::vec3 lightDir;
     glm::vec3 calculatedLightPosition;
     int viewDistance;
-
+    float sunRadius;
+    float maxLightPos;
     bool cursorLocked = false;
     bool cursorStarted = false;
     bool showDebug = false;

@@ -31,7 +31,7 @@ public:
 
     glm::mat4 getProjectionMatrix();
     glm::mat4 getViewMatrix();
-    std::vector<glm::vec3> getFrustrumPoints(float farDist);
+    std::vector<glm::vec4> getFrustrumPoints(const glm::mat4& proj, const glm::mat4& view);
     void rotate(float x, float y, float z);
 };
 

@@ -44,29 +44,27 @@ void Camera::rotate(float x, float y, float z)
     updateVectors();
 }
 
-std::vector<glm::vec3> Camera::getFrustrumPoints(float farDist) {
-    float nearDist = 0.0f;
-    // float farDist = farDist;
-    float aspectRatio = float(Window::_width) / float(Window::_height);
-    auto tanFOV = glm::tan(FOV / 2);
-    auto hNear = 2 * tanFOV * nearDist;
-    auto wNear = hNear * aspectRatio;
-    auto hFar = 2 * tanFOV * farDist;
-    auto wFar = hFar * aspectRatio;
+std::vector<glm::vec4> Camera::getFrustrumPoints(const glm::mat4& proj, const glm::mat4& view)
+{
+    const auto inv = glm::inverse(proj * view);
 
-    glm::vec3 fc = pos + front * farDist;
+    std::vector<glm::vec4> frustumCorners;
+    for (unsigned int x = 0; x < 2; ++x)
+    {
+        for (unsigned int y = 0; y < 2; ++y)
+        {
+            for (unsigned int z = 0; z < 2; ++z)
+            {
+                const glm::vec4 pt =
+                        inv * glm::vec4(
+                                2.0f * x - 1.0f,
+                                2.0f * y - 1.0f,
+                                2.0f * z - 1.0f,
+                                1.0f);
+                frustumCorners.emplace_back(pt / pt.w);
+            }
+        }
+    }
 
-    glm::vec3 ftl = fc + (up * glm::vec3(hFar) / glm::vec3(2.0f)) - (right * glm::vec3(wFar) / glm::vec3(2.0f));
-    glm::vec3 ftr = fc + (up * glm::vec3(hFar) / glm::vec3(2.0f)) + (right * glm::vec3(wFar) / glm::vec3(2.0f));
-    glm::vec3 fbl = fc - (up * glm::vec3(hFar) / glm::vec3(2.0f)) - (right * glm::vec3(wFar) / glm::vec3(2.0f));
-    glm::vec3 fbr = fc - (up * glm::vec3(hFar) / glm::vec3(2.0f)) + (right * glm::vec3(wFar) / glm::vec3(2.0f));
-
-    glm::vec3 nc = pos + front * nearDist;
-
-    glm::vec3 ntl = nc + (up * glm::vec3(hNear) / glm::vec3(2.0f)) - (right * glm::vec3(wNear) / glm::vec3(2.0f));
-    glm::vec3 ntr = nc + (up * glm::vec3(hNear) / glm::vec3(2.0f)) + (right * glm::vec3(wNear) / glm::vec3(2.0f));
-    glm::vec3 nbl = nc - (up * glm::vec3(hNear) / glm::vec3(2.0f)) - (right * glm::vec3(wNear) / glm::vec3(2.0f));
-    glm::vec3 nbr = nc - (up * glm::vec3(hNear) / glm::vec3(2.0f)) + (right * glm::vec3(wNear) / glm::vec3(2.0f));
-
-    return std::vector{ftl, ftr, fbl, fbr, ntl, ntr, nbl, nbr};
+    return frustumCorners;
 }

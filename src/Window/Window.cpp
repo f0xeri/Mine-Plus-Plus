@@ -158,6 +158,52 @@ void renderQuad()
     glBindVertexArray(0);
 }
 
+float _normalize(float val, float min, float max) {
+    return (val - min) / (max - min);
+}
+
+std::vector<glm::mat4> lProj;
+std::vector<glm::mat4> lView;
+
+std::vector<glm::mat4> getLightSpaceMatrices(const std::vector<float> &shadowCascadeLevels, ShadowMap *shadowMap)
+{
+    std::vector<glm::mat4> ret;
+    for (size_t i = 0; i < shadowCascadeLevels.size() + 1; ++i)
+    {
+        if (i == 0)
+        {
+            const auto proj = glm::perspective(state->camera->FOV, (float)Window::_width / (float)Window::_height, 0.1f, shadowCascadeLevels[i]);
+            std::vector<glm::vec4> frustrumPoints = state->camera->getFrustrumPoints(proj, state->camera->getViewMatrix());
+            auto lightView = shadowMap->calculateLightViewMatrix(frustrumPoints);
+            auto lightProj = shadowMap->calculateLightProjectionMatrix(frustrumPoints, lightView);
+            ret.push_back(lightProj * lightView);
+            lProj.push_back(lightProj);
+            lView.push_back(lightView);
+        }
+        else if (i < shadowCascadeLevels.size())
+        {
+            const auto proj = glm::perspective(state->camera->FOV, (float)Window::_width / (float)Window::_height, shadowCascadeLevels[i - 1], shadowCascadeLevels[i]);
+            std::vector<glm::vec4> frustrumPoints = state->camera->getFrustrumPoints(proj, state->camera->getViewMatrix());
+            auto lightView = shadowMap->calculateLightViewMatrix(frustrumPoints);
+            auto lightProj = shadowMap->calculateLightProjectionMatrix(frustrumPoints, lightView);
+            ret.push_back(lightProj * lightView);
+            lProj.push_back(lightProj);
+            lView.push_back(lightView);
+        }
+        else
+        {
+            const auto proj = glm::perspective(state->camera->FOV, (float)Window::_width / (float)Window::_height, shadowCascadeLevels[i - 1], 500.0f);
+            std::vector<glm::vec4> frustrumPoints = state->camera->getFrustrumPoints(proj, state->camera->getViewMatrix());
+            auto lightView = shadowMap->calculateLightViewMatrix(frustrumPoints);
+            auto lightProj = shadowMap->calculateLightProjectionMatrix(frustrumPoints, lightView);
+            ret.push_back(lightProj * lightView);
+            lProj.push_back(lightProj);
+            lView.push_back(lightView);
+        }
+    }
+    return ret;
+}
+
 void Window::startLoop()
 {
     GUIRenderer gui(mainWindow);
@@ -199,7 +245,7 @@ void Window::startLoop()
     unsigned int gBuffer;
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-    unsigned int gPosition, gNormal, gAlbedoSpec;
+    unsigned int gPosition, gNormal, gAlbedoSpec, gDepth;
 
     // буфер позиций
     glGenTextures(1, &gPosition);
@@ -226,17 +272,33 @@ void Window::startLoop()
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
 
     // укажем OpenGL, какие буферы мы будем использовать при рендеринге
+
+    glGenTextures(1, &gDepth);
+    glBindTexture(GL_TEXTURE_2D, gDepth);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, Window::_width, Window::_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    constexpr float bordercolor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, bordercolor);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);
+
     unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, attachments);
-    unsigned int rboDepth;
-    glGenRenderbuffers(1, &rboDepth);
-    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, Window::_width, Window::_height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
     // finally check if framebuffer is complete
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    unsigned int lightSpaceMatricesUBO;
+    glGenBuffers(1, &lightSpaceMatricesUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, lightSpaceMatricesUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::mat4x4) * 16, nullptr, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, lightSpaceMatricesUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+
 
     Shader gbufferShader("gbufferVert", "gbufferFrag");
     gbufferShader.link();
@@ -248,7 +310,7 @@ void Window::startLoop()
     crosshairShader.bindAttribute(0, "position");
     crosshairShader.link();
 
-    Shader simpleDepthShader("vertDepthShader", "fragDepthShader");
+    Shader simpleDepthShader("vertDepthShader", "fragDepthShader", "geomDepthShader");
     simpleDepthShader.link();
 
     Shader debugQuad("vertDebugQuad", "fragDebugQuad");
@@ -260,13 +322,16 @@ void Window::startLoop()
     double lastTime = glfwGetTime();
 
     int chunksOnSceneCounter = 0;
-
-    state->lightDir = {-0.2f, -1.0f,-0.2f};
-
-    mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
     state->viewDistance = 6;
 
-    ShadowMap shadowMap(state, 2048, 2048, 25);
+    state->lightDir = {-0.2f, -1.0f, -0.2f};
+    glm::vec3 startLightDir = {-1.2f, -1.0f, -1.2f};
+    state->sunRadius = CHUNK_SIZE / 2;
+
+    //state->lightDir.z *= state->sunRadius;
+    glm::vec3 oldLightDir = state->lightDir;
+    mat4 orthoMatrix = glm::ortho(ASPECT_RATIO, -ASPECT_RATIO, 1.0f, -1.0f, 1.0f, -1.0f);
+
     LocalPlayer player(glm::vec3(0, 50, 0));
 
 
@@ -280,7 +345,10 @@ void Window::startLoop()
 
     std::unordered_map<uint32_t, Player*> players;
     std::unordered_map<uint32_t, PlayerRenderer*> playerRenderers;
-
+    glm::vec3 lightPos;
+    //std::vector<float> shadowCascadeLevels{ 500.0f / 50.0f, 500.0f / 25.0f, 500.0f / 10.0f, 500.0f / 2.0f };
+    std::vector<float> shadowCascadeLevels{ 500.0f / 50.0f, 500.0f / 25.0f, 500.0f / 10.0f, 500.0f / 2.0f };
+    ShadowMap shadowMap(state, 2048, 2048, 25, shadowCascadeLevels.size() + 1);
     while (!glfwWindowShouldClose(mainWindow))
     {
         if (state->netClient->isConnected())
@@ -396,6 +464,7 @@ void Window::startLoop()
         double currentTime = glfwGetTime();
         state->deltaTime = glfwGetTime() - lastTime;
         lastTime = currentTime;
+        state->maxLightPos = state->viewDistance * CHUNK_SIZE;
 
         updateInputs(mainWindow, players[state->netClient->playerID]);
         //LOG(players.size());
@@ -403,6 +472,18 @@ void Window::startLoop()
         {
             p.second->update(state->deltaTime, state);
         }
+
+        oldLightDir = state->lightDir;
+        float rad = glm::radians(15.0f);
+        //state->lightDir.z = (oldLightDir.z * glm::cos(rad * state->deltaTime) - oldLightDir.y * glm::sin(rad * state->deltaTime));
+        //state->lightDir.y = (oldLightDir.z * glm::sin(rad * state->deltaTime) + oldLightDir.y * glm::cos(rad * state->deltaTime));
+        //state->lightDir = {-1.2f, -1.0f, -1.2f};
+        /*state->lightDir.x = state->lightDir.x * state->viewDistance;
+        state->lightDir.y = state->lightDir.y * state->viewDistance;
+        state->lightDir.z = state->lightDir.z * state->viewDistance;*/
+        /*state->chunks->set(lightPos.x, lightPos.y, lightPos.z, 0);
+        lightPos = state->calculatedLightPosition;
+        state->chunks->set(lightPos.x, lightPos.y, lightPos.z, 1);*/
 
         glClearColor(0.5, 0.8, 1, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -438,25 +519,36 @@ void Window::startLoop()
         chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, gbufferShader, chunksOnSceneCounter);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
+        const auto lightMatrices = getLightSpaceMatrices(shadowCascadeLevels, &shadowMap);
+        glBindBuffer(GL_UNIFORM_BUFFER, lightSpaceMatricesUBO);
+        for (size_t i = 0; i < lightMatrices.size(); ++i)
+        {
+            glBufferSubData(GL_UNIFORM_BUFFER, i * sizeof(glm::mat4x4), sizeof(glm::mat4x4), &lightMatrices[i]);
+        }
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+
+
         // SHADOW MAP PASS
-        auto mainCamPoints = state->camera->getFrustrumPoints(25);
+        /*auto mainCamPoints = state->camera->getFrustrumPoints(32);
         glm::mat4 lightView = shadowMap.calculateLightViewMatrix(mainCamPoints);
         glm::mat4 lightProjection = shadowMap.calculateLightProjectionMatrix(mainCamPoints, lightView);
-        glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-
-        simpleDepthShader.use();
-        simpleDepthShader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
-
-        glViewport(0, 0,  shadowMap.width, shadowMap.height);
-        shadowMap.bindFBO();
-        glClear(GL_DEPTH_BUFFER_BIT);
-
-        glActiveTexture(GL_TEXTURE0);
-        texture_atlas->bind();
-        glCullFace(GL_FRONT);
-        chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, simpleDepthShader, chunksOnSceneCounter);
-        chunksOnSceneCounter = 0;
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glm::mat4 lightSpaceMatrix = lightProjection * lightView;*/
+        if (state->useShadows)
+        {
+            simpleDepthShader.use();
+            glViewport(0, 0,  shadowMap.width, shadowMap.height);
+            shadowMap.bindFBO();
+            glClear(GL_DEPTH_BUFFER_BIT);
+            //glActiveTexture(GL_TEXTURE0);
+            //texture_atlas->bind();
+            glCullFace(GL_FRONT);
+            chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, simpleDepthShader, chunksOnSceneCounter);
+            chunksOnSceneCounter = 0;
+            glCullFace(GL_BACK);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
 
         if (state->showPolygons) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -472,32 +564,30 @@ void Window::startLoop()
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
         glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, gDepth);
+        glActiveTexture(GL_TEXTURE4);
         shadowMap.bind();
 
         glUniform3f(glGetUniformLocation(defferedLightningPassShader.mProgram, "lightDir"), state->lightDir.x, state->lightDir.y, state->lightDir.z);
         glUniform1i(glGetUniformLocation(defferedLightningPassShader.mProgram, "useShadows"), state->useShadows);
-        defferedLightningPassShader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
+        /*defferedLightningPassShader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
         defferedLightningPassShader.uniformMatrix(lightProjection, "lightProjection");
+        defferedLightningPassShader.uniformMatrix(lightView, "lightView");*/
+        glUniform1f(glGetUniformLocation(defferedLightningPassShader.mProgram, "farPlane"), 500.0f);
+        glUniform1i(glGetUniformLocation(defferedLightningPassShader.mProgram, "cascadeCount"), shadowCascadeLevels.size());
+        for (size_t i = 0; i < shadowCascadeLevels.size(); ++i)
+        {
+            glUniform1f(glGetUniformLocation(defferedLightningPassShader.mProgram, std::string("cascadePlaneDistances[" + std::to_string(i) + "]").c_str()), shadowCascadeLevels[i]);
+        }
+
+        glUniform3f(glGetUniformLocation(defferedLightningPassShader.mProgram, "viewPos"), state->camera->pos.x, state->camera->pos.y, state->camera->pos.z);
+        glUniform1f(glGetUniformLocation(defferedLightningPassShader.mProgram, "interpolationX"), state->sunRadius * startLightDir.z);
+        glUniform1f(glGetUniformLocation(defferedLightningPassShader.mProgram, "time"), glfwGetTime());
+        glUniform3f(glGetUniformLocation(defferedLightningPassShader.mProgram, "lightPos"), state->calculatedLightPosition.x, state->calculatedLightPosition.y, state->calculatedLightPosition.z);
         //glCullFace(GL_BACK);
         //chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, defferedLightningPassShader, chunksOnSceneCounter);
         renderQuad();
 
-        // main render
-        /*shader.use();
-        shader.uniformMatrix(state->camera->getProjectionMatrix() * state->camera->getViewMatrix(), "projView");
-        glUniform3f(glGetUniformLocation(shader.mProgram, "viewPos"), state->camera->pos.x, state->camera->pos.y, state->camera->pos.z);
-        glUniform3f(glGetUniformLocation(shader.mProgram, "lightDir"), state->lightDir.x, state->lightDir.y, state->lightDir.z);
-        glUniform1i(glGetUniformLocation(shader.mProgram, "useShadows"), state->useShadows);
-        shader.uniformMatrix(lightSpaceMatrix, "lightSpaceMatrix");
-        shader.uniformMatrix(lightProjection, "lightProjection");
-        glActiveTexture(GL_TEXTURE0);
-        texture_atlas->bind();
-        glActiveTexture(GL_TEXTURE1);
-        shadowMap.bind();
-        glCullFace(GL_BACK);
-        chunkRenderer.render(*state->chunks, cx, cz, state->viewDistance, shader, chunksOnSceneCounter);
-        */
-        //LOG("\n")
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
@@ -505,7 +595,12 @@ void Window::startLoop()
         // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the
         // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
         glBlitFramebuffer(0, 0, Window::_width, Window::_height, 0, 0, Window::_width, Window::_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);
+
 
         for (auto &playerRenderer : playerRenderers)
         {

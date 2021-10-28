@@ -16,11 +16,12 @@ private:
 
     GLuint mVertexShader;
     GLuint mFragmentShader;
+    GLuint mGeometryShader = 0;
     GLuint loadShader(const std::string &path, GLenum shaderType);
 public:
     GLuint mProgram;
 
-    Shader(const std::string &vert, const std::string &frag);
+    Shader(const std::string &vert, const std::string &frag, const std::string &geometry = "");
     ~Shader();
     void link();
     void bindAttribute(GLuint index, const std::string &name);
