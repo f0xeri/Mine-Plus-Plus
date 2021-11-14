@@ -7,7 +7,7 @@ Minecraft-style game created using C++ and OpenGL
 Watch on YouTube - https://www.youtube.com/watch?v=8IVDNCsKZX4
 
 ## Multiplayer showcase (old build)
-![](https://i.giphy.com/media/aQMs72KKl4FOpZaJh8/source.gif)
+![alt text](https://i.giphy.com/media/aQMs72KKl4FOpZaJh8/source.gif)
 
 Watch on YouTube - https://www.youtube.com/watch?v=8IVDNCsKZX4
 
