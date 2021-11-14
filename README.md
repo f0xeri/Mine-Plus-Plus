@@ -1,13 +1,22 @@
 # Mine-Plus-Plus
 Minecraft-style game created using C++ and OpenGL
 
-![image](https://user-images.githubusercontent.com/25245692/110043085-3b4a7580-7d60-11eb-9cba-13e3757f81c9.png)
+Showcase (old build)
+![image](http://i.imgur.com/0QIrXexh.gif)
+Watch on YouTube - https://www.youtube.com/watch?v=8IVDNCsKZX4
+
+Multiplayer showcase (old build)
+![image](http://i.imgur.com/4Sg0byVh.gif)
+Watch on YouTube - https://www.youtube.com/watch?v=8IVDNCsKZX4
 
 ## Done
 - Chunk render
 - Simple world generation
 - Build/destroy mechanic
-- Lighting 
+- Basic lighting 
+- Shadows (Cascaded Shadow Maps)
+- First/third person controller with collision detection
+- Networking
 
 ## Controls
 - WASD, mouse, lshift, lctrl - camera controls
@@ -19,7 +28,6 @@ Minecraft-style game created using C++ and OpenGL
 
 ## Todo
 - Better world generation
-- Physics
 - Audio
 - GUI
 - Refactoring
